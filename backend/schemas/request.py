@@ -1,5 +1,5 @@
 """
-Parsed service request and agent decision schemas.
+Parsed service request, agent decisions, and x402 booking schemas.
 """
 
 from __future__ import annotations
@@ -8,7 +8,7 @@ from enum import Enum
 from typing import Optional
 from pydantic import BaseModel, Field
 
-from schemas.arkiv import ArkivQueryFilter
+from schemas.arkiv import ArkivQueryFilter, Currency
 
 
 class AgentAction(str, Enum):
@@ -63,3 +63,62 @@ class ParsedServiceRequest(BaseModel):
         description="List of helpful missing fields if query was incomplete or ambiguous",
     )
 
+
+# =====================================================================
+# x402 Hedera Booking & Slot Burn Schemas
+# =====================================================================
+
+class SlotPublishRequest(BaseModel):
+    """
+    Request from seller to unblock a slot on Arkiv.
+    By default, all slots are blocked. Calling this publishes an ArkivSlotEntity.
+    """
+    service_id: str = Field(..., description="Target service entity key")
+    start_time: int = Field(..., description="Unix epoch timestamp in seconds")
+    duration_min: int = Field(60, gt=0, description="Session length in minutes")
+
+
+class SlotBookingRequest(BaseModel):
+    """
+    Agent/Buyer request to book an open slot.
+    Triggers an HTTP 402 Payment Required response with Hedera payment parameters.
+    """
+    service_id: str = Field(..., description="Service entity key")
+    slot_entity_key: str = Field(..., description="Arkiv slot entity key being booked")
+    buyer_wallet: str = Field(..., description="Buyer or AI agent's Hedera / EVM wallet address")
+    slot_start: int = Field(..., description="Unix epoch timestamp of the slot")
+
+
+class X402PaymentRequirement(BaseModel):
+    """
+    HTTP 402 response payload compliant with Hedera x402 specification.
+    Returned to the client when requesting to book a slot.
+    """
+    status: int = Field(402, description="HTTP status code (402 Payment Required)")
+    scheme: str = Field("exact", description="x402 scheme")
+    amount: str = Field(..., description="Quoted price (e.g. '18.00')")
+    token: str = Field("USDC (0.0.456858)", description="Token specification (USDC or HBAR)")
+    network: str = Field("hedera-testnet", description="Target Hedera network")
+    pay_to: str = Field(..., description="Provider's Hedera Account ID (0.0.xxxxx)")
+    facilitator: str = Field("https://facilitator.slotpay.network", description="Hedera x402 facilitator endpoint")
+    resource: str = Field(..., description="Booking endpoint path being accessed")
+    max_timeout_seconds: int = Field(300, description="Quote validity period (5 minutes)")
+    slot_entity_key: str = Field(..., description="Slot reserved during checkout")
+
+
+class BookingConfirmation(BaseModel):
+    """
+    Confirmation receipt returned once payment settles on Hedera.
+    The slot entity has now been deleted from Arkiv (reverting to blocked).
+    """
+    booking_ref: str = Field(..., description="Human-readable booking reference (e.g. SP-49F12A)")
+    service_id: str = Field(..., description="Service entity key")
+    provider: str = Field(..., description="Provider name or address")
+    buyer: str = Field(..., description="Buyer name or address")
+    start_time: int = Field(..., description="Booked session start timestamp")
+    amount: float = Field(..., description="Total amount paid")
+    currency: Currency = Field(Currency.USDC, description="Settlement currency")
+    hedera_tx_id: str = Field(..., description="Settled Hedera transaction ID")
+    hashscan_url: str = Field(..., description="HashScan testnet explorer URL")
+    burned_slot_key: str = Field(..., description="Arkiv slot entity key that was deleted")
+    receipt_entity_key: Optional[str] = Field(None, description="Arkiv receipt entity key if logged")

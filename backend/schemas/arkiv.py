@@ -1,9 +1,14 @@
 """
-Arkiv database query schemas for SlotPay.
+Arkiv database query and entity schemas for SlotPay.
 
-Arkiv acts as the open, wallet-owned service-discovery database.
-These schemas represent query constraints to filter services,
-providers, and availability slots published on the Arkiv layer.
+Arkiv acts as the open, wallet-owned service-discovery and availability database.
+Under the Option B "Vanish / Burn" architecture:
+1. All slots for a seller are BLOCKED by default (zero entities in Arkiv).
+2. Only when a seller publishes their availability does an ArkivSlotEntity get created.
+3. Once a slot is booked & paid via Hedera x402, the seller backend immediately
+   deletes the entity (deleteEntity), reverting the slot back to blocked.
+4. If a slot is not booked before its start time, Arkiv's native TTL (expiresAt)
+   automatically purges it.
 """
 
 from __future__ import annotations
@@ -119,3 +124,69 @@ class ArkivQueryFilter(BaseModel):
                 params["time_of_day"] = self.time_window.time_of_day
         return params
 
+
+# =====================================================================
+# Arkiv Native Entity Schemas (SDK 1.0.x / Option B: Vanish & Burn)
+# =====================================================================
+
+class ArkivServiceEntity(BaseModel):
+    """
+    Service Listing Entity registered on Arkiv.
+    Arkiv Tag: 'slotpay:service:v1'
+    """
+    entity_key: Optional[str] = Field(None, description="Unique Arkiv entity key (0x...)")
+    tag: str = Field("slotpay:service:v1", description="Arkiv schema tag")
+    provider_address: str = Field(..., description="Provider wallet address / Hedera Account ID")
+    title: str = Field(..., description="Service title")
+    category: str = Field(..., description="Category (Engineering, Security, Design, Legal, etc.)")
+    skills: list[str] = Field(default_factory=list, description="Searchable skill tags (indexed)")
+    price: float = Field(..., ge=0, description="Rate per session")
+    currency: Currency = Field(Currency.USDC, description="Settlement token: USDC or HBAR")
+    duration_min: int = Field(..., gt=0, description="Duration in minutes (e.g. 30, 60, 90)")
+    provider_type: ProviderType = Field(ProviderType.HUMAN, description="human or ai")
+    description: str = Field("", description="Detailed offering description (unindexed)")
+    swarm_ref: Optional[str] = Field(None, description="Swarm bzz:// hash for portfolio documents")
+    expires_at: Optional[int] = Field(None, description="Arkiv listing TTL in epoch seconds")
+
+
+class ArkivSlotEntity(BaseModel):
+    """
+    Available Time Slot Entity registered on Arkiv.
+    Arkiv Tag: 'slotpay:slot:v1'
+
+    ARCHITECTURE NOTE (Option B - Default Blocked):
+    - By default, ALL slots are blocked.
+    - An ArkivSlotEntity ONLY exists when the seller explicitly publishes it.
+    - If it exists on Arkiv, it is 100% OPEN.
+    - When booked via Hedera x402, the seller calls deleteEntity() to burn it,
+      instantly returning this time slot to BLOCKED.
+    - expires_at is set to start_time so past unbooked slots are automatically purged.
+    """
+    entity_key: Optional[str] = Field(None, description="Unique Arkiv slot entity key (0x...)")
+    tag: str = Field("slotpay:slot:v1", description="Arkiv schema tag")
+    service_id: str = Field(..., description="Foreign key to the parent ArkivServiceEntity key")
+    provider_address: str = Field(..., description="Provider wallet address")
+    start_time: int = Field(..., description="Unix epoch timestamp (seconds) when session starts")
+    duration_min: int = Field(60, gt=0, description="Session duration in minutes")
+    expires_at: int = Field(
+        ...,
+        description="Arkiv TTL deadline; defaults to start_time so expired slots auto-delete",
+    )
+
+
+class ArkivBookingReceiptEntity(BaseModel):
+    """
+    Settlement & Booking Receipt recorded after Hedera x402 payment settles.
+    Arkiv Tag: 'slotpay:receipt:v1'
+    """
+    entity_key: Optional[str] = Field(None, description="Unique Arkiv receipt entity key (0x...)")
+    tag: str = Field("slotpay:receipt:v1", description="Arkiv schema tag")
+    service_id: str = Field(..., description="Service entity key")
+    provider_address: str = Field(..., description="Provider Hedera account (payTo)")
+    buyer_address: str = Field(..., description="Buyer / Agent account that paid")
+    slot_time: int = Field(..., description="Unix timestamp of the booked session")
+    amount: float = Field(..., ge=0, description="Amount paid")
+    currency: Currency = Field(Currency.USDC, description="Payment currency (USDC or HBAR)")
+    hedera_tx_id: str = Field(..., description="Hedera testnet transaction ID (e.g. 0.0.400123@173000.1)")
+    hashscan_url: str = Field(..., description="Direct HashScan explorer URL for verification")
+    created_at: int = Field(..., description="Unix timestamp when payment confirmed")
