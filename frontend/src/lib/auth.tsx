@@ -36,7 +36,7 @@ function writeStoredAuth(a: StoredAuth) {
 
 export interface PrivyBridgeApi {
   login: (method: "google" | "wallet") => void;
-  logout: () => Promise<void>;
+  logout: () => void | Promise<void>;
 }
 
 interface AuthContextValue {
