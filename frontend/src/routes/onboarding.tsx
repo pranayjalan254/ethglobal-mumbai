@@ -16,7 +16,7 @@ export const Route = createFileRoute("/onboarding")({
   head: () => ({
     meta: [
       { title: "Get started — SlotPay" },
-      { name: "description", content: "Choose a role and sign in with Google to create your SlotPay wallet." },
+      { name: "description", content: "Choose a role and sign in to create your SlotPay wallet." },
       { property: "og:title", content: "Get started — SlotPay" },
       { property: "og:description", content: "Choose a role and sign in to the open service network." },
       { property: "og:type", content: "website" },
@@ -67,7 +67,7 @@ function Onboarding() {
           <ol className="mt-12 max-w-md border-t border-hairline">
             {[
               "Choose whether you offer or buy services.",
-              "Sign in with Google. An embedded wallet is created for you.",
+              "Sign in with your email. An embedded wallet is created for you.",
               "Providers publish listings owned by that wallet. Buyers can delegate payment to an agent.",
             ].map((t, i) => (
               <li key={i} className="flex gap-5 border-b border-hairline py-4">
@@ -125,11 +125,11 @@ function Onboarding() {
                 disabled={pending || !auth.isReady}
                 onClick={() => {
                   setPending(true);
-                  auth.login("google");
+                  auth.login("email");
                   if (auth.usingPrivy) setTimeout(() => setPending(false), 4000);
                 }}
               >
-                Continue with Google
+                Continue with email
               </Button>
               {pending && <ProgressLine className="mt-4" />}
               <div className="mt-6">

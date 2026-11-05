@@ -55,8 +55,8 @@ function Bridge() {
         if (method === "wallet") {
           connectOrCreateWallet();
         } else {
-          // Open Privy modal scoped to the requested login method
-          login({ loginMethods: [method] });
+          // "email" — open Privy modal scoped to email OTP (no OAuth needed)
+          login({ loginMethods: ["email"] });
         }
       },
       logout: async () => {
@@ -95,7 +95,7 @@ export default function PrivyBridge({ appId }: { appId: string }) {
       appId={appId}
       config={{
         // Supported login methods shown in the Privy modal
-        loginMethods: ["google", "wallet"],
+        loginMethods: ["email", "wallet"],
         embeddedWallets: {
           ethereum: {
             // Automatically create an embedded wallet for users who sign in

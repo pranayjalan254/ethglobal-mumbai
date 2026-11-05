@@ -35,7 +35,7 @@ function writeStoredAuth(a: StoredAuth) {
 }
 
 export interface PrivyBridgeApi {
-  login: (method: "google" | "wallet") => void;
+  login: (method: "email" | "wallet") => void;
   logout: () => void | Promise<void>;
 }
 
@@ -46,7 +46,7 @@ interface AuthContextValue {
   profile: ProviderProfile | null;
   isReady: boolean;
   usingPrivy: boolean;
-  login: (method?: "google" | "wallet") => void;
+  login: (method?: "email" | "wallet") => void;
   logout: () => Promise<void>;
   setRole: (r: Role) => void;
   setProfile: (p: ProviderProfile) => void;
@@ -95,10 +95,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile: state.profile,
       isReady: hydrated && privyReady,
       usingPrivy: !!PRIVY_APP_ID,
-      login: (method = "google") => {
+      login: (method = "email") => {
         if (bridge.current) return bridge.current.login(method);
         // Demo fallback when VITE_PRIVY_APP_ID is not configured.
-        setTimeout(() => update({ walletAddress: mockWallet(), email: method === "google" ? "demo@slotpay.network" : null }), 900);
+        setTimeout(() => update({ walletAddress: mockWallet(), email: method === "email" ? "demo@slotpay.network" : null }), 900);
       },
       logout: async () => {
         await bridge.current?.logout();
