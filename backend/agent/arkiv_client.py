@@ -372,7 +372,24 @@ class ArkivClient:
         avail_results = self._call_arkiv_rpc(f"arkiv.schema = str('{ARKIV_AVAILABILITY_SCHEMA}')")
         if avail_results:
             logger.info("Arkiv RPC discovered %d live availability entities on Rabdi.", len(avail_results))
-            matches = [s for s in avail_results if self._matches_filter(s, query_filter)]
+            def sort_key(item: dict[str, Any]) -> int:
+                try:
+                    return int(item.get("expiresAt") or 0)
+                except Exception:
+                    return 0
+
+            avail_results_sorted = sorted(avail_results, key=sort_key, reverse=True)
+            seen_wallets = set()
+            deduped = []
+            for item in avail_results_sorted:
+                wallet = str(item.get("provider_wallet") or item.get("provider", {}).get("wallet", "")).lower()
+                if wallet and wallet in seen_wallets:
+                    continue
+                if wallet:
+                    seen_wallets.add(wallet)
+                deduped.append(item)
+
+            matches = [s for s in deduped if self._matches_filter(s, query_filter)]
             return [s for s in matches if self.is_slot_available(str(s.get("id", "")), active_reservations)]
 
         return []

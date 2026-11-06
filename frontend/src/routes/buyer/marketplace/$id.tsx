@@ -106,13 +106,34 @@ function Detail() {
                     <div className="grid grid-cols-4 gap-px border border-hairline bg-hairline">
                       {list.map((x) => {
                         const slotObj = parseDateSafely(x.start);
+                        const isPast = slotObj ? slotObj.getTime() <= Date.now() : false;
+                        const isAvailable = x.status === "open" && !isPast;
+                        const isBooked = x.status === "booked";
+                        const isClaimed = x.status === "claimed";
+
                         return (
                           <button
                             key={x.id}
-                            disabled={x.status !== "open"}
+                            disabled={!isAvailable}
                             onClick={() => setSel(x)}
                             aria-pressed={sel?.id === x.id}
-                            className={cn("mono py-2.5 transition-colors duration-150", x.status !== "open" ? "bg-surface text-ink-muted line-through" : sel?.id === x.id ? "bg-ink text-background" : "bg-surface-raised hover:bg-surface")}
+                            title={
+                              isPast
+                                ? "Time slot has expired"
+                                : isBooked
+                                  ? "Already booked"
+                                  : isClaimed
+                                    ? "Temporarily reserved"
+                                    : "Available slot"
+                            }
+                            className={cn(
+                              "mono py-2.5 transition-colors duration-150",
+                              !isAvailable
+                                ? "bg-surface text-ink-muted/50 line-through cursor-not-allowed"
+                                : sel?.id === x.id
+                                  ? "bg-ink text-background"
+                                  : "bg-surface-raised hover:bg-surface"
+                            )}
                           >
                             {slotObj ? format(slotObj, "HH:mm") : x.start}
                           </button>

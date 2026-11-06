@@ -296,10 +296,20 @@ export async function queryArkivServices(
     if (records.length === 0) {
       try {
         const availQuery = client.select().from(AvailabilitySchema).where(eq("status", str("open")));
-        const availPage = await availQuery.withCount().limit(20).fetch();
+        const availPage = await availQuery.withCount().limit(50).fetch();
         if (availPage.entities && availPage.entities.length > 0) {
+          // Sort newest first by target expiry block / created block so we always pick the latest active schedule
+          const sortedEntities = [...availPage.entities].sort((a, b) => {
+            const expA = a.$expiresAt ? BigInt(a.$expiresAt) : 0n;
+            const expB = b.$expiresAt ? BigInt(b.$expiresAt) : 0n;
+            if (expA !== expB) return expA > expB ? -1 : 1;
+            const blockA = a.$createdBlock ? BigInt(a.$createdBlock) : 0n;
+            const blockB = b.$createdBlock ? BigInt(b.$createdBlock) : 0n;
+            return blockA > blockB ? -1 : 1;
+          });
+
           const seenWallets = new Set<string>();
-          for (const av of availPage.entities) {
+          for (const av of sortedEntities) {
             const keyStr = (av.$key as string).toLowerCase();
             if (reservedKeys.has(keyStr)) continue;
 
@@ -603,16 +613,63 @@ export async function publishAvailabilityOnChain(
   const walletClient = await getArkivWalletClient(provider, accountAddress);
   const expiration = getArkivExpiration(days);
 
+  // 1. Query existing live availability entities owned by this provider to delete & prevent duplicates
+  let oldEntityKeys: `0x${string}`[] = [];
+  try {
+    const publicClient = getArkivPublicClient();
+    const existingPage = await publicClient
+      .select()
+      .from(AvailabilitySchema)
+      .where(eq("providerWallet", addr(accountAddress as `0x${string}`)))
+      .fetch();
+    if (existingPage.entities && existingPage.entities.length > 0) {
+      oldEntityKeys = existingPage.entities
+        .map((e) => e.$key as `0x${string}`)
+        .filter(Boolean);
+    }
+  } catch (err) {
+    console.warn("[SlotPay] Notice querying superseded availability entities:", err);
+  }
+
+  const values = {
+    providerWallet: addr(accountAddress as `0x${string}`),
+    providerName: (providerName || "Provider").slice(0, 100),
+    dayHour: cells.join(",").slice(0, 120),
+    status: "open",
+    nextSlot: new Date().toISOString().slice(0, 30),
+    durationMin: i32(60),
+  };
+
+  // If previous entities exist, atomically delete old ones and create the new one in 1 transaction
+  if (oldEntityKeys.length > 0) {
+    try {
+      console.log(`[SlotPay] Replacing ${oldEntityKeys.length} superseded availability entities in 1 batch transaction...`);
+      const batchResult = await walletClient.executeBatch({
+        deletes: oldEntityKeys.map((k) => ({ entityKey: k })),
+        creates: [
+          {
+            schema: AvailabilitySchema,
+            values,
+            expiration,
+          },
+        ],
+      });
+      const newKey = batchResult.createdEntities[0] || "";
+      return {
+        entity_key: newKey,
+        tx_ref: batchResult.txHash,
+        expires_at: new Date(Date.now() + days * 86400 * 1000).toISOString(),
+        count: cells.length,
+        deleted_count: oldEntityKeys.length,
+      };
+    } catch (batchErr) {
+      console.warn("[SlotPay] Atomic executeBatch failed, falling back to standard createEntity:", batchErr);
+    }
+  }
+
   const result = await walletClient.createEntity(
     AvailabilitySchema,
-    {
-      providerWallet: addr(accountAddress as `0x${string}`),
-      providerName: (providerName || "Provider").slice(0, 100),
-      dayHour: cells.join(",").slice(0, 120),
-      status: "open",
-      nextSlot: new Date().toISOString().slice(0, 30),
-      durationMin: i32(60),
-    },
+    values,
     { expiration },
   );
 

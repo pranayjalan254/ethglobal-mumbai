@@ -24,7 +24,7 @@ export const EXPLORER_BASE = "https://hashscan.io/testnet/transaction/";
 export type ProviderType = "human" | "ai";
 export type Currency = "USDC" | "HBAR";
 export type ServiceStatus = "draft" | "published" | "expired";
-export type SlotStatus = "open" | "claimed" | "booked";
+export type SlotStatus = "open" | "claimed" | "booked" | "expired";
 export type BookingStatus = "confirmed" | "completed" | "pending" | "cancelled";
 
 export interface Provider {

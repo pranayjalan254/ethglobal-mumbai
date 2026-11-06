@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 ProviderType = Literal["human", "ai"]
 Currency = Literal["USDC", "HBAR"]
 ServiceStatus = Literal["draft", "published", "expired"]
-SlotStatus = Literal["open", "claimed", "booked"]
+SlotStatus = Literal["open", "claimed", "booked", "expired"]
 BookingStatus = Literal["confirmed", "completed", "pending", "cancelled"]
 StepState = Literal["pending", "running", "complete", "failed", "awaiting"]
 AgentStepId = Literal["understand", "discover", "compare", "claim", "pay", "confirm"]

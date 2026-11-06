@@ -58,6 +58,14 @@ class AvailabilityService:
                             status = "claimed"
                             claim_expires = res.get("expiresAt")
 
+                    if status == "open":
+                        try:
+                            start_dt = datetime.fromisoformat(start_iso.replace("Z", "+00:00"))
+                            if start_dt.timestamp() <= time.time():
+                                status = "expired"
+                        except Exception:
+                            pass
+
                     slots.append({
                         "id": slot_id,
                         "cellKey": cell,
@@ -91,6 +99,13 @@ class AvailabilityService:
                         slot["status"] = "claimed"
                         slot["claimExpiresAt"] = res.get("expiresAt")
                         slot["reservationId"] = res.get("reservationId")
+                if slot.get("status") == "open":
+                    try:
+                        start_dt = datetime.fromisoformat(slot["start"].replace("Z", "+00:00"))
+                        if start_dt.timestamp() <= time.time():
+                            slot["status"] = "expired"
+                    except Exception:
+                        pass
             slots = base_slots
 
         return slots
@@ -172,6 +187,14 @@ class AvailabilityService:
                 start_iso = at_offset(d, h)
                 if date and not start_iso.startswith(date):
                     continue
+
+                if status == "open":
+                    try:
+                        start_dt = datetime.fromisoformat(start_iso.replace("Z", "+00:00"))
+                        if start_dt.timestamp() <= time.time():
+                            status = "expired"
+                    except Exception:
+                        pass
 
                 slots.append({
                     "id": slot_id,

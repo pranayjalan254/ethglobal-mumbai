@@ -35,7 +35,7 @@ const DEFAULT_OPEN = new Set([
   "4-9", "4-10", "4-11", "4-14", "4-15", "4-16",
 ]);
 
-type SlotFilter = "all" | "open" | "claimed" | "booked";
+type SlotFilter = "all" | "open" | "claimed" | "booked" | "expired";
 
 function Availability() {
   const { walletAddress, getEthereumProvider, profile } = useAuth();
@@ -200,6 +200,7 @@ function Availability() {
       open: slots.filter((s) => s.status === "open").length,
       claimed: slots.filter((s) => s.status === "claimed").length,
       booked: slots.filter((s) => s.status === "booked").length,
+      expired: slots.filter((s) => s.status === "expired").length,
     };
   }, [q.data]);
 
@@ -597,6 +598,18 @@ function Availability() {
             >
               Booked ({counts.booked})
             </button>
+            {counts.expired > 0 && (
+              <button
+                type="button"
+                onClick={() => setFilter("expired")}
+                className={cn(
+                  "px-3 py-1.5 transition-colors",
+                  filter === "expired" ? "bg-ink text-background" : "text-ink hover:bg-surface"
+                )}
+              >
+                Expired ({counts.expired})
+              </button>
+            )}
           </div>
         </div>
 
@@ -636,6 +649,8 @@ function Availability() {
                     <Status tone="success">Open</Status>
                   ) : s.status === "claimed" ? (
                     <Status tone="warning">Claimed Hold</Status>
+                  ) : s.status === "expired" ? (
+                    <Status tone="neutral">Expired</Status>
                   ) : (
                     <Status tone="ink">Booked</Status>
                   ),
