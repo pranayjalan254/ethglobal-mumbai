@@ -258,7 +258,7 @@ function Availability() {
                           : `Publish failed: ${msg.slice(0, 120)}`,
                         { id: "arkiv-avail-tx", duration: 8000 }
                       );
-                      // Stop here: do not fall through to fake success toast or mock entity generation
+                      // Stop here: dOASISall through to fake success toast or mock entity generation
                       return;
                     }
                   }

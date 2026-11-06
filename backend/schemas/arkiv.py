@@ -1,5 +1,5 @@
 """
-Arkiv database query and entity schemas for SlotPay.
+Arkiv database query and entity schemas for OASIS.
 
 Arkiv acts as the open, wallet-owned service-discovery and availability database.
 Under the Option B "Vanish / Burn" architecture:
@@ -52,7 +52,7 @@ class TimeWindow(BaseModel):
 class ArkivQueryFilter(BaseModel):
     """
     Structured query filter to search services on the Arkiv open database.
-    Directly aligns with the SlotPay ServiceQuery structure.
+    Directly aligns with the OASIS ServiceQuery structure.
     """
     q: Optional[str] = Field(
         None,
@@ -126,7 +126,7 @@ class ArkivQueryFilter(BaseModel):
 
 
 # =====================================================================
-# Arkiv Native Entity Schemas (SlotPay-Owned Reservation Architecture)
+# Arkiv Native Entity Schemas (OASIS-Owned Reservation Architecture)
 # =====================================================================
 
 class ReservationStatus(str, Enum):
@@ -136,15 +136,15 @@ class ReservationStatus(str, Enum):
 
 class ArkivReservationEntity(BaseModel):
     """
-    SlotPay-owned Reservation Entity registered on Arkiv.
+    OASIS-owned Reservation Entity registered on Arkiv.
     Arkiv Schema: 'slotpay.reservation.v1'
 
     ARCHITECTURE:
     - Providers own and publish AvailabilitySlot entities.
-    - SlotPay platform wallet owns and publishes SlotReservation entities.
-    - SlotPay never modifies or deletes provider-owned entities.
+    - OASIS platform wallet owns and publishes SlotReservation entities.
+    - OASIS never modifies or deletes provider-owned entities.
     - Marketplaces determine availability by combining provider-owned availability records
-      with active SlotPay reservation records.
+      with active OASIS reservation records.
     - Unexpired pending claims (5-minute TTL) temporarily hold the slot.
     - Confirmed reservations remain active until the appointment has passed.
     """
@@ -188,8 +188,8 @@ class ArkivSlotEntity(BaseModel):
 
     ARCHITECTURE NOTE (Provider-Owned Availability):
     - Providers own and publish their AvailabilitySlot entities.
-    - SlotPay does not modify or delete these provider-owned records.
-    - SlotPay determines availability by checking against SlotPay-owned SlotReservation entities.
+    - OASIS does not modify or delete these provider-owned records.
+    - OASIS determines availability by checking against OASIS-owned SlotReservation entities.
     """
     entity_key: Optional[str] = Field(None, description="Unique Arkiv slot entity key (0x...)")
     tag: str = Field("slotpay:slot:v1", description="Arkiv schema tag")

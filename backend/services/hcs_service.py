@@ -1,5 +1,5 @@
 """
-Hedera Consensus Service (HCS) audit logger for SlotPay.
+Hedera Consensus Service (HCS) audit logger for OASIS.
 
 Publishes tamper-evident booking receipts to an HCS topic on Hedera testnet.
 This is native Hedera service #2 (alongside HTS TransferTransaction used in x402).
@@ -63,7 +63,7 @@ def publish_booking_to_hcs(booking_data: dict[str, Any]) -> Optional[str]:
 
         message = json.dumps(
             {
-                "app": "SlotPay",
+                "app": "OASIS",
                 "event": "booking_confirmed",
                 **booking_data,
             },

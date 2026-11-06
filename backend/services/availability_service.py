@@ -2,10 +2,10 @@
 Availability Service - Slot publication, dynamic slot generation, and claim reservations.
 Implements Arkiv Reservation Architecture:
 - Providers own and publish AvailabilitySlot entities.
-- SlotPay platform wallet owns and publishes SlotReservation entities.
-- SlotPay never modifies or deletes provider-owned entities.
+- OASIS platform wallet owns and publishes SlotReservation entities.
+- OASIS never modifies or deletes provider-owned entities.
 - Marketplaces determine availability by combining provider-owned records
-  with active SlotPay reservation records.
+  with active OASIS reservation records.
 """
 
 from __future__ import annotations
@@ -234,7 +234,7 @@ class AvailabilityService:
         return {
             "claim_id": record["reservationId"],
             "expires_at": record["expiresAt"],
-            "reservation": record,
+            "reseOASIS": record,
         }
 
     def confirm_slot_reservation(
@@ -259,7 +259,7 @@ class AvailabilityService:
 
     def burn_slot(self, slot_id: str) -> None:
         """
-        Deprecated Option B burn method.
+        DeprecateOASISn B burn method.
         Under the reservation architecture, provider entities are never deleted.
         """
         pass

@@ -1,5 +1,5 @@
 """
-Configuration module for SlotPay Backend.
+Configuration module for OASIS Backend.
 Reads environment variables from .env without requiring third-party dotenv dependencies.
 """
 
@@ -37,7 +37,7 @@ GROQ_FALLBACK_MODELS: list[str] = [
     "llama-3.3-70b-versatile",
 ]
 
-# Canonical SlotPay service categories
+# Canonical OASIS service categories
 CATEGORIES: list[str] = [
     "Engineering",
     "Security",

@@ -1,5 +1,5 @@
 """
-Swarm Service - Decentralized storage for SlotPay portfolios, credentials, and reports.
+Swarm Service - Decentralized storage for OASIS portfolios, credentials, and reports.
 Implements Swarm bzz:// hash referencing and postage batch integration.
 """
 

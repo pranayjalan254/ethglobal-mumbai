@@ -1,5 +1,5 @@
 """
-Service Store - In-memory service catalog for SlotPay.
+Service Store - In-memory service catalog for OASIS.
 
 No seed data. Services are created by real providers via the API
 and discovered from live Arkiv on-chain entities.
@@ -32,7 +32,7 @@ def at_offset(days: int, hour: int, minute: int = 0) -> str:
 
 
 class ServiceStore:
-    """Manages the catalog of provider-created services in SlotPay."""
+    """Manages the catalog of provider-created services in OASIS."""
 
     def __init__(self) -> None:
         self._services: Dict[str, Dict[str, Any]] = {}

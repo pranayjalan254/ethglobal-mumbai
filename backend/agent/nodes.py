@@ -269,7 +269,7 @@ def _resolve_relative_date(target: Optional[str], ref_str: str) -> Optional[str]
 
 
 def _normalize_category(cat: Optional[str]) -> Optional[str]:
-    """Map arbitrary category strings to canonical SlotPay categories."""
+    """Map arbitrary category strings to canonical OASIS categories."""
     if not cat:
         return None
     c = cat.strip().lower()
@@ -576,7 +576,7 @@ def claim_slot(state: QueryParserState) -> dict[str, Any]:
         or "provider_001"
     )
 
-    # Create Arkiv PendingSlotClaim (SlotPay-owned, 5-minute TTL)
+    # Create Arkiv PendingSlotClaim (OASIS-owned, 5-minute TTL)
     pending_claim = arkiv_client.create_pending_claim(
         slot_id=service_id,
         availability_entity_key=str(selected.get("entityKey") or selected.get("id") or ""),
@@ -650,7 +650,7 @@ def execute_x402_payment(state: QueryParserState) -> dict[str, Any]:
             client_wallet=client_wallet,
             approved_budget=approved_budget,
         )
-        # Create Arkiv ConfirmedReservation (SlotPay-owned, retained through appointment)
+        # Create Arkiv ConfirmedReservation (OASIS-owned, retained through appointment)
         service_id = str(selected.get("id") or selected.get("entityKey") or "srv_arkiv")
         provider_id = (
             selected.get("provider_name")

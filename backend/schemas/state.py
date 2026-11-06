@@ -1,5 +1,5 @@
 """
-LangGraph state definitions for the SlotPay Autonomous Commerce Agent.
+LangGraph state definitions for the OASIS Autonomous Commerce Agent.
 """
 
 from __future__ import annotations

@@ -1,5 +1,5 @@
 """
-Autonomous Agent router for SlotPay FastAPI backend.
+Autonomous Agent router for OASIS FastAPI backend.
 Streams real-time execution steps and Hedera x402 payment events via SSE.
 """
 

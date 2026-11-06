@@ -1,5 +1,5 @@
 """
-Swarm Decentralized Storage router for SlotPay FastAPI backend.
+Swarm Decentralized Storage router for OASIS FastAPI backend.
 """
 
 from __future__ import annotations

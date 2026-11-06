@@ -1,5 +1,5 @@
 """
-Availability and Slots router for SlotPay FastAPI backend.
+Availability and Slots router for OASIS FastAPI backend.
 """
 
 from __future__ import annotations

@@ -1,5 +1,5 @@
 """
-Bookings router for SlotPay FastAPI backend.
+Bookings router for OASIS FastAPI backend.
 Handles Hedera x402 payment requirements challenges and confirmations.
 """
 

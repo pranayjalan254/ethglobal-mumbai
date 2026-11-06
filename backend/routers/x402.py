@@ -163,7 +163,7 @@ def x402_protected_consultation(
         "x402Version": 2,
         "resource": {
             "url": f"/api/x402/consultation/{service_id}",
-            "description": f"SlotPay {svc.get('title', 'Consultation')}",
+            "description": f"OASIS {svc.get('title', 'Consultation')}",
             "mimeType": "application/json",
         },
         "accepted": {

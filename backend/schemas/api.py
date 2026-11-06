@@ -1,6 +1,6 @@
 """
-Pydantic schemas for the SlotPay FastAPI REST and SSE endpoints.
-Matches the SlotPay frontend TypeScript interfaces.
+Pydantic schemas for the OASIS FastAPI REST and SSE endpoints.
+Matches the OASIS frontend TypeScript interfaces.
 """
 
 from __future__ import annotations

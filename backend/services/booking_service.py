@@ -147,7 +147,7 @@ class BookingService:
             booking_record["hcsUrl"] = hcs_url
 
         # Record SlotPay-owned ConfirmedReservation on Arkiv (never modifies/deletes provider entities)
-        effective_slot_id = slot_id or f"{service_id}-{slot_start}"
+        effectiveOASISd = slot_id or f"{service_id}-{slot_start}"
         buyer_wallet = buyer if buyer.startswith("0x") else "0x71C2a0b3C4E5f61A2b3f4E5d6C7b8A9F0e1D2c3B"
         availability_service.confirm_slot_reservation(
             slot_id=effective_slot_id,

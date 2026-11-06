@@ -248,7 +248,7 @@ class HederaX402PaymentEngine:
             "x402Version": 2,
             "resource": {
                 "url": challenge.resource,
-                "description": "SlotPay booking authorization",
+                "description": "OASIS booking authorization",
                 "mimeType": "application/json",
             },
             "accepted": {

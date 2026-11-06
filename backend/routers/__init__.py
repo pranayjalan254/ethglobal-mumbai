@@ -1,5 +1,5 @@
 """
-SlotPay Backend API Routers.
+OASIS Backend API Routers.
 """
 
 from routers.services import router as services_router

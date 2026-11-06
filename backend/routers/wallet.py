@@ -1,5 +1,5 @@
 """
-Wallet router for SlotPay FastAPI backend.
+Wallet router for OASIS FastAPI backend.
 """
 
 from __future__ import annotations

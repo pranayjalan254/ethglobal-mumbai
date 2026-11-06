@@ -30,7 +30,7 @@ client.set_transport_security(False)
 print("Submitting test message...")
 tx = TopicMessageSubmitTransaction()
 tx.set_topic_id(topic_id)
-tx.set_message("Test message from SlotPay")
+tx.set_message("Test message from OASIS")
 
 try:
     receipt = tx.execute(client)

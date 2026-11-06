@@ -1,5 +1,5 @@
 """
-One-time script to create the SlotPay HCS audit topic on Hedera testnet.
+One-time script to create the OASIS HCS audit topic on Hedera testnet.
 
 Run once:
     uv run python scripts/create_hcs_topic.py
@@ -52,7 +52,7 @@ def main() -> None:
     print("Creating HCS topic on Hedera testnet …")
 
     tx = TopicCreateTransaction()
-    tx.topic_memo = "SlotPay booking audit log - ethglobal-mumbai"
+    tx.topic_memo = "OASIS booking audit log - ethglobal-mumbai"
 
     receipt = (
         tx

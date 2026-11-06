@@ -1,5 +1,5 @@
 """
-Unit tests for the SlotPay Natural Language Query Parser Agent.
+Unit tests for the OASIS Natural Language Query Parser Agent.
 """
 
 from __future__ import annotations

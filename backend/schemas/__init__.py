@@ -1,5 +1,5 @@
 """
-Schemas package exports for SlotPay.
+Schemas package exports for OASIS.
 """
 
 from schemas.arkiv import (

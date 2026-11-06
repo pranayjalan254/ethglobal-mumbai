@@ -1,6 +1,6 @@
 """
 Agent Service - Coordinates the LangGraph autonomous commerce agent
-and streams SSE events to the SlotPay frontend.
+and streams SSE events to the OASIS frontend.
 """
 
 from __future__ import annotations

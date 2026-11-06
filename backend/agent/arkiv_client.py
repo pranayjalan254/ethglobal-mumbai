@@ -1,5 +1,5 @@
 """
-Arkiv Web3 Database Client for SlotPay.
+Arkiv Web3 Database Client for OASIS.
 
 Implements real query and read operations on the Arkiv Rabdi testnet
 following the Arkiv protocol and JSON-RPC specification:
@@ -72,7 +72,7 @@ def build_arkiv_query_string(f: ArkivQueryFilter) -> str:
 
 
 class ArkivClient:
-    """Arkiv database client for SlotPay service discovery and booking reservations."""
+    """Arkiv database client for OASIS service discovery and booking reservations."""
 
     def __init__(
         self,
@@ -83,7 +83,7 @@ class ArkivClient:
         self.rpc_url = rpc_url
         self.access_key = access_key
         self.platform_wallet = platform_wallet
-        # SlotPay-owned reservation store (keyed by reservationId and slotId)
+        # OASIS-owned reservation store (keyed by reservationId and slotId)
         self._reservations: dict[str, dict[str, Any]] = {}
         self._slot_reservations: dict[str, dict[str, Any]] = {}
 
@@ -138,8 +138,8 @@ class ArkivClient:
         duration_sec: int = 300,
     ) -> dict[str, Any]:
         """
-        Create a SlotPay-owned PendingSlotClaim entity with 5-minute expiration.
-        Represents a temporary booking claim owned by SlotPay platform wallet.
+        Create a OASIS-owned PendingSlotClaim entity with 5-minute expiration.
+        Represents a temporary booking claim owned by OASIS platform wallet.
         """
         res_id = f"reservation_{secrets.token_hex(4)}"
         now = datetime.now(timezone.utc)
@@ -191,8 +191,8 @@ class ArkivClient:
         reservation_id: Optional[str] = None,
     ) -> dict[str, Any]:
         """
-        Create a SlotPay-owned ConfirmedReservation entity upon successful payment.
-        Owned by SlotPay platform wallet. Stored separately so 5-min claim expiry
+        Create a OASIS-owned ConfirmedReservation entity upon successful payment.
+        Owned by OASIS platform wallet. Stored separately so 5-min claim expiry
         does not remove successful booking.
         """
         res_id = reservation_id or f"reservation_{secrets.token_hex(4)}"
@@ -356,7 +356,7 @@ class ArkivClient:
         """
         Query services from the Arkiv open database matching the given criteria.
         Executes real JSON-RPC call against Rabdi testnet.
-        Combines provider-owned availability records with active SlotPay reservation records:
+        Combines provider-owned availability records with active OASIS reservation records:
         - Excludes slots with an unexpired pending reservation.
         - Excludes slots with a confirmed reservation.
         Returns ONLY genuinely available services and slots.

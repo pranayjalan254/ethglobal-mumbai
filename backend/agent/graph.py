@@ -1,5 +1,5 @@
 """
-LangGraph StateGraph assembly for the SlotPay Autonomous Commerce Agent.
+LangGraph StateGraph assembly for the OASIS Autonomous Commerce Agent.
 Integrates Arkiv open service discovery and Hedera x402 autonomous payments.
 """
 

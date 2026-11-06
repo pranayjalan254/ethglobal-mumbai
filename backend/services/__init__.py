@@ -1,5 +1,5 @@
 """
-SlotPay Backend Services Package.
+OASIS Backend Services Package.
 """
 
 from services.service_store import service_store, ServiceStore
