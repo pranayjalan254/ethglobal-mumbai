@@ -5,6 +5,8 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "hiero-sdk-python>=0.3.0",
     "langchain-groq>=1.1.3",
     "langgraph>=1.2.20",
-]
+        "requests>=2.32.0",
+    ]

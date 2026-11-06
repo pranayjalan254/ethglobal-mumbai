@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { claimSlot, confirmBooking, createBooking, type PaymentRequirements, type Receipt, type Service, type Slot } from "@/lib/api";
+import { executeAutonomousHederaPayment } from "@/lib/x402-hedera";
 import { dt, money } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Countdown, Eyebrow, Mono, ProgressLine } from "./primitives";
@@ -32,9 +33,25 @@ export function Checkout({ service, slot, onClose }: { service: Service; slot: S
     setPayment(b.payment);
     await new Promise((r) => setTimeout(r, 600));
     setPhase(2);
-    await new Promise((r) => setTimeout(r, 900));
+    const settlement = await executeAutonomousHederaPayment({
+      challenge: {
+        status: 402,
+        scheme: "exact",
+        network: "hedera-testnet",
+        amount: b.payment.amount,
+        currency: service.currency,
+        token: b.payment.token,
+        payTo: b.payment.payTo,
+        feePayer: "0.0.987654",
+        facilitator: b.payment.facilitator,
+        resource: b.payment.resource,
+        maxTimeoutSeconds: b.payment.maxTimeoutSeconds,
+      },
+      approvedBudget: service.price * 1.5,
+      clientWallet: "0x71c2a0b3c4e5f61a2b3f4e5d6c7b8a9f0e1d2c3b",
+    });
     setPhase(3);
-    const r = await confirmBooking(service, slot.start);
+    const r = await confirmBooking(service, slot.start, settlement.txId);
     setReceipt(r);
     setPhase(4);
     qc.invalidateQueries({ queryKey: ["bookings"] });

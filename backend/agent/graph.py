@@ -1,16 +1,21 @@
 """
-LangGraph StateGraph assembly for the SlotPay Natural Language Query Parser.
+LangGraph StateGraph assembly for the SlotPay Autonomous Commerce Agent.
+Integrates Arkiv open service discovery and Hedera x402 autonomous payments.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 from langgraph.graph import END, START, StateGraph
 
 from agent.nodes import (
+    claim_slot,
     clarification_node,
+    compare_and_select,
+    discover_arkiv,
+    execute_x402_payment,
     llm_extraction,
     normalize_and_validate,
     preprocess_input,
@@ -27,23 +32,35 @@ def _route_after_preprocess(state: QueryParserState) -> Literal["clarification",
     return "llm_extract"
 
 
-def _route_after_validate(state: QueryParserState) -> Literal["clarification", "__end__"]:
+def _route_after_validate(state: QueryParserState) -> Literal["clarification", "discover_arkiv"]:
     if state.get("needs_clarification"):
         return "clarification"
-    return END
+    return "discover_arkiv"
 
 
-def create_query_parser_graph() -> StateGraph:
-    """Build the compiled LangGraph workflow."""
+def _route_after_compare(state: QueryParserState) -> Literal["claim_slot", "__end__"]:
+    if not state.get("selected_service"):
+        return END
+    return "claim_slot"
+
+
+def create_autonomous_agent_graph() -> StateGraph:
+    """Build the compiled LangGraph workflow with Arkiv discovery and Hedera x402 payment."""
     workflow = StateGraph(QueryParserState)
 
-    # Add processing nodes
+    # 1. Processing nodes
     workflow.add_node("preprocess", preprocess_input)
     workflow.add_node("llm_extract", llm_extraction)
     workflow.add_node("normalize_validate", normalize_and_validate)
     workflow.add_node("clarification", clarification_node)
 
-    # Connect nodes
+    # 2. Autonomous commerce nodes
+    workflow.add_node("discover_arkiv", discover_arkiv)
+    workflow.add_node("compare_and_select", compare_and_select)
+    workflow.add_node("claim_slot", claim_slot)
+    workflow.add_node("execute_x402_payment", execute_x402_payment)
+
+    # 3. Graph edges
     workflow.add_edge(START, "preprocess")
     workflow.add_conditional_edges(
         "preprocess",
@@ -59,46 +76,46 @@ def create_query_parser_graph() -> StateGraph:
         _route_after_validate,
         {
             "clarification": "clarification",
+            "discover_arkiv": "discover_arkiv",
+        },
+    )
+    workflow.add_edge("discover_arkiv", "compare_and_select")
+    workflow.add_conditional_edges(
+        "compare_and_select",
+        _route_after_compare,
+        {
+            "claim_slot": "claim_slot",
             END: END,
         },
     )
+    workflow.add_edge("claim_slot", "execute_x402_payment")
+    workflow.add_edge("execute_x402_payment", END)
     workflow.add_edge("clarification", END)
 
     return workflow.compile()
 
 
-# Singleton compiled graph instance
-query_parser_agent = create_query_parser_graph()
+# Compiled Singleton Graph
+autonomous_agent_workflow = create_autonomous_agent_graph()
 
 
 def parse_service_query(
     query: str,
     reference_date: Optional[str] = None,
 ) -> ParsedServiceRequest:
-    """
-    High-level entrypoint for parsing a natural language query into an Arkiv query object.
-
-    Args:
-        query: Natural language string, e.g.
-               "Find me a Python developer available tomorrow for a one-hour consultation under $20. Choose the best available option and book it."
-        reference_date: Optional context date string (e.g. "2026-11-05 (Thursday)")
-
-    Returns:
-        ParsedServiceRequest with ArkivQueryFilter and AgentDecision.
-    """
+    """Entrypoint for parsing query and generating Arkiv query criteria."""
     initial_state: QueryParserState = {
         "raw_query": query,
         "reference_date": reference_date or "",
         "steps_executed": [],
     }
 
-    final_state = query_parser_agent.invoke(initial_state)
+    final_state = autonomous_agent_workflow.invoke(initial_state)
 
     parsed = final_state.get("parsed_request")
     if parsed:
         return parsed
 
-    # Return fallback object if clarification was triggered
     from schemas.arkiv import ArkivQueryFilter
     from schemas.request import AgentAction, AgentDecision, SelectionStrategy
 
@@ -115,3 +132,21 @@ def parse_service_query(
         missing_fields=["more_details"],
     )
 
+
+def execute_autonomous_agent(
+    query: str,
+    client_wallet: str = "0x71c2a0b3c4e5f61a2b3f4e5d6c7b8a9f0e1d2c3b",
+    reference_date: Optional[str] = None,
+) -> QueryParserState:
+    """
+    Execute complete end-to-end autonomous flow:
+    Understand -> Arkiv Discover -> Compare & Pick -> Claim Slot -> Hedera x402 Pay -> Confirm.
+    """
+    initial_state: QueryParserState = {
+        "raw_query": query,
+        "client_wallet": client_wallet,
+        "reference_date": reference_date or "",
+        "steps_executed": [],
+    }
+
+    return autonomous_agent_workflow.invoke(initial_state)

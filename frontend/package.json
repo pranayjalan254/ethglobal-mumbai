@@ -17,6 +17,8 @@
     "rolldown": "1.2.1"
   },
   "dependencies": {
+    "@arkiv-network/sdk": "^1.0.1",
+    "@hiero-ledger/sdk": "^2.90.1",
     "@hookform/resolvers": "^5.2.2",
     "@privy-io/react-auth": "^3.51.1",
     "@radix-ui/react-accordion": "^1.2.12",

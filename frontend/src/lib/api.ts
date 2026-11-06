@@ -6,6 +6,9 @@
  * the body of each function with the `http()` call shown in its comment.
  */
 
+import { queryArkivServices, getArkivExpiration } from "./arkiv";
+import { create402Challenge, executeAutonomousHederaPayment, type X402PaymentRequirements } from "./x402-hedera";
+
 export const API_BASE_URL: string =
   (import.meta.env["VITE_API_BASE_URL"] as string | undefined) ?? "http://localhost:8000";
 
@@ -381,25 +384,37 @@ export async function claimSlot(_slotId: string) {
 
 /** POST /api/bookings -> 402 payment requirements */
 export async function createBooking(service: Service, _slotId: string): Promise<{ booking_id: string; payment: PaymentRequirements }> {
-  await delay(800);
+  await delay(400);
+  const challenge = create402Challenge(service.id, service.price, service.currency, service.provider.wallet);
   return {
     booking_id: "bk_" + hex(10),
     payment: {
-      status: 402, scheme: "exact",
-      amount: service.price.toFixed(2), token: service.currency === "USDC" ? "USDC (0.0.456858)" : "HBAR",
-      network: "hedera-testnet", payTo: service.provider.wallet,
-      facilitator: "https://facilitator.slotpay.network",
-      resource: `/api/bookings/${service.id}`, maxTimeoutSeconds: 300,
+      status: 402,
+      scheme: challenge.scheme,
+      amount: challenge.amount,
+      token: challenge.token,
+      network: challenge.network,
+      payTo: challenge.payTo,
+      facilitator: challenge.facilitator,
+      resource: challenge.resource,
+      maxTimeoutSeconds: challenge.maxTimeoutSeconds,
     },
   };
 }
 
 /** POST /api/bookings/{id}/confirm  body: { payment_header } -> Receipt */
-export async function confirmBooking(service: Service, slotStart: string): Promise<Receipt> {
-  await delay(1100);
+export async function confirmBooking(service: Service, slotStart: string, txIdOverride?: string): Promise<Receipt> {
+  await delay(600);
+  const confirmedTxId = txIdOverride ?? txId();
   const r: Receipt = {
-    bookingRef: "SP-" + hex(6).toUpperCase(), provider: service.provider.name, providerType: service.provider.type,
-    service: service.title, start: slotStart, amount: service.price, currency: service.currency, txId: txId(),
+    bookingRef: "SP-" + hex(6).toUpperCase(),
+    provider: service.provider.name,
+    providerType: service.provider.type,
+    service: service.title,
+    start: slotStart,
+    amount: service.price,
+    currency: service.currency,
+    txId: confirmedTxId,
   };
   BOOKINGS?.unshift({ ...r, id: r.bookingRef, buyer: "You", status: "confirmed" });
   return r;
@@ -543,11 +558,30 @@ export async function streamAgentChat(
     }
   }
   step("pay", "running", { payment, phase: "challenge" });
-  await wait(900);
+  await wait(600);
   step("pay", "running", { payment, phase: "signing" });
-  await wait(1000);
-  const receipt = await confirmBooking(pick, pick.nextSlot);
-  step("pay", "complete", { payment, phase: "settled", txId: receipt.txId });
+  
+  // Autonomous payment execution on Hedera x402 with fee-payer model
+  const settlement = await executeAutonomousHederaPayment({
+    challenge: {
+      status: 402,
+      scheme: "exact",
+      network: "hedera-testnet",
+      amount: payment.amount,
+      currency: pick.currency,
+      token: payment.token,
+      payTo: payment.payTo,
+      feePayer: "0.0.987654",
+      facilitator: payment.facilitator,
+      resource: payment.resource,
+      maxTimeoutSeconds: payment.maxTimeoutSeconds,
+    },
+    approvedBudget: opts.limit,
+    clientWallet: "0x71c2a0b3c4e5f61a2b3f4e5d6c7b8a9f0e1d2c3b",
+  });
+
+  const receipt = await confirmBooking(pick, pick.nextSlot, settlement.txId);
+  step("pay", "complete", { payment, phase: "settled", txId: receipt.txId, explorerUrl: settlement.explorerUrl });
 
   step("confirm", "running");
   await wait(500);
