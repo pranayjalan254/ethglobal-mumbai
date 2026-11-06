@@ -1,7 +1,7 @@
 import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
-import { readStoredAuth } from "@/lib/auth";
+import { readStoredAuth } from "@/lib/auth-storage";
 import { AccountMenu, WalletChip } from "@/components/sp/account-menu";
 import { Wordmark } from "@/components/sp/primitives";
 import { cn } from "@/lib/utils";

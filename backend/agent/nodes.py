@@ -94,11 +94,155 @@ def llm_extraction(state: QueryParserState) -> dict[str, Any]:
                 continue
 
     if not extracted and last_err:
-        extracted = {"raw_error": str(last_err), "is_actionable": False}
+        logger.info("LLM extraction failed (%s); using heuristic query parsing fallback.", last_err)
+        extracted = _fallback_heuristic_extraction(raw_query, ref_date)
 
     return {
         "extracted_data": extracted,
         "steps_executed": steps,
+    }
+
+
+def _fallback_heuristic_extraction(raw_query: str, ref_date: str) -> dict[str, Any]:
+    """Deterministic rule-based extractor when LLM API is unavailable or offline."""
+    text = (raw_query or "").strip()
+    if not text:
+        return {"is_actionable": False}
+
+    lowered = text.lower()
+
+    # Category detection
+    category = None
+    if any(k in lowered for k in ["python", "software", "code", "dev", "backend", "frontend", "api", "django"]):
+        category = "Engineering"
+    elif any(k in lowered for k in ["audit", "solidity", "smart contract", "security", "vuln"]):
+        category = "Security"
+    elif any(k in lowered for k in ["ux", "ui", "design", "product flow", "accessibility"]):
+        category = "Design"
+    elif any(k in lowered for k in ["legal", "contract", "terms", "lawyer", "compliance"]):
+        category = "Legal"
+    elif any(k in lowered for k in ["research", "brief", "citations", "market"]):
+        category = "Research"
+    elif any(k in lowered for k in ["accounting", "finance", "reconciliation", "tax", "ledger"]):
+        category = "Finance"
+
+    # Skills detection
+    skills: list[str] = []
+    known_skills = [
+        "Python", "FastAPI", "Pandas", "Django", "Solidity", "Hedera",
+        "Security Audit", "UX", "Accessibility", "Research", "Agent Payments",
+        "Market Analysis", "Accounting", "Contracts", "PostgreSQL", "Rust", "TypeScript",
+    ]
+    for sk in known_skills:
+        if sk.lower() in lowered:
+            skills.append(sk)
+    if "python" in lowered and "Python" not in skills:
+        skills.append("Python")
+
+    # Provider type
+    provider_type = "any"
+    if any(k in lowered for k in ["developer", "consultant", "engineer", "lawyer", "designer", "human", "pairing"]):
+        provider_type = "human"
+    elif any(k in lowered for k in ["ai agent", "autonomous", "automated", "ai code-review"]):
+        provider_type = "ai"
+
+    # Provider name detection
+    known_providers = [
+        "Anika Rao", "Marcus Lindqvist", "Sora Ito", "Priya Menon",
+        "Atlas Research", "Reviewer-7", "Tomás Ferreira", "Ledgerline",
+    ]
+    provider_name = None
+    for p in known_providers:
+        if p.lower() in lowered or any(part.lower() in lowered for part in p.split() if len(part) > 3):
+            provider_name = p
+            break
+
+    # Price detection ($20, under $20, up to $150, 20 USDC)
+    max_price = None
+    price_match = re.search(r"(?:under|below|up to|budget|max|for)\s*\$?\s*(\d+(?:\.\d+)?)", lowered)
+    if not price_match:
+        price_match = re.search(r"\$\s*(\d+(?:\.\d+)?)", lowered)
+    if not price_match:
+        price_match = re.search(r"(\d+(?:\.\d+)?)\s*(?:usdc|dollars|usd)", lowered)
+    if price_match:
+        try:
+            max_price = float(price_match.group(1))
+        except ValueError:
+            pass
+
+    # Duration detection
+    duration_min = None
+    if "one-hour" in lowered or "1 hour" in lowered or "one hour" in lowered:
+        duration_min = 60
+    elif "30-min" in lowered or "30 min" in lowered or "half hour" in lowered:
+        duration_min = 30
+    elif "90-min" in lowered or "90 min" in lowered:
+        duration_min = 90
+
+    # Time preference
+    target_date = None
+    urgency = "flexible"
+    if "tomorrow" in lowered:
+        target_date = "tomorrow"
+        urgency = "scheduled"
+    elif "today" in lowered:
+        target_date = "today"
+        urgency = "immediate"
+    elif "next monday" in lowered:
+        target_date = "next Monday"
+        urgency = "scheduled"
+    elif "this week" in lowered:
+        target_date = "this week"
+        urgency = "flexible"
+
+    # Action detection
+    action = "search_and_recommend"
+    if any(k in lowered for k in ["book it", "book and pay", "pay for it", "choose and book", "auto-book", "auto book", "book"]):
+        action = "auto_book"
+    elif any(k in lowered for k in ["browse", "list", "show all"]):
+        action = "browse"
+
+    # Selection strategy
+    strategy = "best_available"
+    if any(k in lowered for k in ["cheapest", "lowest price"]):
+        strategy = "lowest_price"
+    elif any(k in lowered for k in ["highest rated", "top rated"]):
+        strategy = "highest_rating"
+    elif any(k in lowered for k in ["earliest", "fastest", "soonest"]):
+        strategy = "earliest_slot"
+
+    auto_approve_budget = max_price if action == "auto_book" else None
+
+    # Determine if actionable
+    is_actionable = bool(
+        category
+        or skills
+        or provider_name
+        or max_price
+        or any(k in lowered for k in ["developer", "audit", "review", "brief", "consultation", "service"])
+    )
+
+    return {
+        "service_query": text,
+        "category": category,
+        "skills": skills,
+        "provider_type": provider_type,
+        "provider_name": provider_name,
+        "max_price": max_price,
+        "min_price": None,
+        "currency": "USDC",
+        "duration_min": duration_min,
+        "time_preference": {
+            "target_date": target_date,
+            "time_of_day": None,
+            "urgency": urgency,
+        },
+        "action": action,
+        "selection_strategy": strategy,
+        "auto_approve_budget": auto_approve_budget,
+        "is_actionable": is_actionable,
+        "missing_information": [] if is_actionable else ["more details"],
+        "summary": f"Request for {category or 'service'} ({', '.join(skills) if skills else text})",
     }
 
 

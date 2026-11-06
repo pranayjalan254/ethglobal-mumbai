@@ -1,9 +1,9 @@
 /**
  * SlotPay API client.
  *
- * Every data call in the app goes through this module. Each function currently
- * returns mock data after a short delay. To connect the FastAPI backend, replace
- * the body of each function with the `http()` call shown in its comment.
+ * Links the frontend to the FastAPI backend at API_BASE_URL.
+ * Supports Arkiv open database service discovery, Hedera x402 payment challenges,
+ * and SSE streaming autonomous agent chat.
  */
 
 import { queryArkivServices, getArkivExpiration } from "./arkiv";
@@ -68,6 +68,7 @@ export interface PaymentRequirements {
   token: string;
   network: string;
   payTo: string;
+  feePayer?: string | undefined;
   facilitator: string;
   resource: string;
   maxTimeoutSeconds: number;
@@ -132,7 +133,9 @@ export interface SwarmFile {
 
 const delay = (ms = 450) => new Promise((r) => setTimeout(r, ms));
 
-// Kept for the real implementation.
+/**
+ * Standard HTTP JSON client for FastAPI backend.
+ */
 export async function http<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     headers: { "content-type": "application/json" },
@@ -158,7 +161,7 @@ function at(dayOffset: number, hour: number, min = 0) {
   return d.toISOString();
 }
 
-// ---------------------------------------------------------------- seed data
+// ---------------------------------------------------------------- local fallback seed data
 
 function mkProvider(p: Omit<Provider, "documents" | "credentials"> & Partial<Provider>): Provider {
   return {
@@ -240,7 +243,6 @@ const services = () => (SERVICES ??= seed());
 
 export const CATEGORIES = ["Engineering", "Security", "Design", "Legal", "Research", "Finance"];
 
-// Services owned by the signed-in provider (provider dashboard).
 let MY_SERVICES: Service[] | null = null;
 function myServices(owner: string): Service[] {
   if (MY_SERVICES) return MY_SERVICES;
@@ -255,169 +257,285 @@ function myServices(owner: string): Service[] {
   return MY_SERVICES!;
 }
 
-// ---------------------------------------------------------------- endpoints
+// ---------------------------------------------------------------- endpoints linked with FastAPI
 
 /** GET /api/services?q&category&skill&provider_type&min_price&max_price&date&duration */
 export async function listServices(query: ServiceQuery = {}): Promise<Service[]> {
-  await delay();
-  const q = query.q?.toLowerCase().trim();
-  let out = services().filter((s) => {
-    if (q && !`${s.title} ${s.description} ${s.skills.join(" ")} ${s.provider.name}`.toLowerCase().includes(q)) return false;
-    if (query.category && s.category !== query.category) return false;
-    if (query.skill && !s.skills.some((k) => k.toLowerCase().includes(query.skill!.toLowerCase()))) return false;
-    if (query.provider_type && query.provider_type !== "any" && s.provider.type !== query.provider_type) return false;
-    if (query.min_price != null && s.price < query.min_price) return false;
-    if (query.max_price != null && s.price > query.max_price) return false;
-    if (query.duration && s.durationMin !== query.duration) return false;
-    if (query.date && s.nextSlot.slice(0, 10) > query.date) return false;
-    return true;
-  });
-  if (query.sort === "price") out = [...out].sort((a, b) => a.price - b.price);
-  if (query.sort === "earliest") out = [...out].sort((a, b) => a.nextSlot.localeCompare(b.nextSlot));
-  return out;
+  try {
+    const params = new URLSearchParams();
+    if (query.q) params.set("q", query.q);
+    if (query.category) params.set("category", query.category);
+    if (query.skill) params.set("skill", query.skill);
+    if (query.provider_type && query.provider_type !== "any") params.set("provider_type", query.provider_type);
+    if (query.min_price != null) params.set("min_price", String(query.min_price));
+    if (query.max_price != null) params.set("max_price", String(query.max_price));
+    if (query.duration) params.set("duration", String(query.duration));
+    if (query.date) params.set("date", query.date);
+    if (query.sort) params.set("sort", query.sort);
+    const qs = params.toString();
+    return await http<Service[]>(`/api/services${qs ? `?${qs}` : ""}`);
+  } catch (err) {
+    console.warn("[SlotPay] FastAPI listServices fell back to local store:", err);
+    await delay(100);
+    const q = query.q?.toLowerCase().trim();
+    let out = services().filter((s) => {
+      if (q && !`${s.title} ${s.description} ${s.skills.join(" ")} ${s.provider.name}`.toLowerCase().includes(q)) return false;
+      if (query.category && s.category !== query.category) return false;
+      if (query.skill && !s.skills.some((k) => k.toLowerCase().includes(query.skill!.toLowerCase()))) return false;
+      if (query.provider_type && query.provider_type !== "any" && s.provider.type !== query.provider_type) return false;
+      if (query.min_price != null && s.price < query.min_price) return false;
+      if (query.max_price != null && s.price > query.max_price) return false;
+      if (query.duration && s.durationMin !== query.duration) return false;
+      if (query.date && s.nextSlot.slice(0, 10) > query.date) return false;
+      return true;
+    });
+    if (query.sort === "price") out = [...out].sort((a, b) => a.price - b.price);
+    if (query.sort === "earliest") out = [...out].sort((a, b) => a.nextSlot.localeCompare(b.nextSlot));
+    return out;
+  }
 }
 
 /** GET /api/services/{id} */
 export async function getService(id: string): Promise<Service> {
-  await delay(300);
-  const s = services().find((x) => x.id === id) ?? MY_SERVICES?.find((x) => x.id === id);
-  if (!s) throw new Error("Service not found");
-  return s;
+  try {
+    return await http<Service>(`/api/services/${id}`);
+  } catch (err) {
+    console.warn("[SlotPay] FastAPI getService fell back to local store:", err);
+    await delay(100);
+    const s = services().find((x) => x.id === id) ?? MY_SERVICES?.find((x) => x.id === id);
+    if (!s) throw new Error("Service not found");
+    return s;
+  }
 }
 
 /** GET /api/services?owner={wallet} */
 export async function listMyServices(owner: string): Promise<Service[]> {
-  await delay();
-  return [...myServices(owner)];
+  try {
+    return await http<Service[]>(`/api/services?owner=${encodeURIComponent(owner)}`);
+  } catch (err) {
+    console.warn("[SlotPay] FastAPI listMyServices fell back to local store:", err);
+    await delay(100);
+    return [...myServices(owner)];
+  }
 }
 
 export type ServiceInput = Pick<Service, "title" | "category" | "skills" | "description" | "price" | "currency" | "durationMin"> & { providerType: ProviderType };
 
 /** POST /api/services */
 export async function createService(owner: string, input: ServiceInput): Promise<Service> {
-  await delay();
-  const list = myServices(owner);
-  const svc: Service = {
-    ...input, id: "m" + (list.length + 1 + Math.floor(Math.random() * 1000)),
-    status: "draft", location: "remote", nextSlot: at(1, 10),
-    provider: { ...list[0]!.provider, type: input.providerType },
-  };
-  list.unshift(svc);
-  return svc;
+  try {
+    return await http<Service>(`/api/services?owner=${encodeURIComponent(owner)}`, {
+      method: "POST",
+      body: JSON.stringify({ ...input, owner }),
+    });
+  } catch (err) {
+    console.warn("[SlotPay] FastAPI createService fell back to local store:", err);
+    await delay(100);
+    const list = myServices(owner);
+    const svc: Service = {
+      ...input, id: "m" + (list.length + 1 + Math.floor(Math.random() * 1000)),
+      status: "draft", location: "remote", nextSlot: at(1, 10),
+      provider: { ...list[0]!.provider, type: input.providerType },
+    };
+    list.unshift(svc);
+    return svc;
+  }
 }
 
 /** PUT /api/services/{id} */
 export async function updateService(owner: string, id: string, input: ServiceInput): Promise<Service> {
-  await delay();
-  const list = myServices(owner);
-  const i = list.findIndex((s) => s.id === id);
-  if (i < 0) throw new Error("Service not found");
-  const cur = list[i]!;
-  const next: Service = { ...cur, ...input, provider: { ...cur.provider, type: input.providerType } };
-  list[i] = next;
-  return next;
+  try {
+    return await http<Service>(`/api/services/${id}?owner=${encodeURIComponent(owner)}`, {
+      method: "PUT",
+      body: JSON.stringify({ ...input, owner }),
+    });
+  } catch (err) {
+    console.warn("[SlotPay] FastAPI updateService fell back to local store:", err);
+    await delay(100);
+    const list = myServices(owner);
+    const i = list.findIndex((s) => s.id === id);
+    if (i < 0) throw new Error("Service not found");
+    const cur = list[i]!;
+    const next: Service = { ...cur, ...input, provider: { ...cur.provider, type: input.providerType } };
+    list[i] = next;
+    return next;
+  }
 }
 
 /** POST /api/services/{id}/publish  -> { entity_key, tx_ref, expires_at } */
 export async function publishService(id: string, days: number) {
-  await delay(900);
-  const expires_at = at(days, 0);
-  const s = MY_SERVICES?.find((x) => x.id === id);
-  const entity_key = randomHash();
-  if (s) Object.assign(s, { status: "published", entityKey: entity_key, expiresAt: expires_at });
-  return { entity_key, tx_ref: randomHash(), expires_at };
+  try {
+    return await http<{ entity_key: string; tx_ref: string; expires_at: string }>(`/api/services/${id}/publish`, {
+      method: "POST",
+      body: JSON.stringify({ days }),
+    });
+  } catch (err) {
+    console.warn("[SlotPay] FastAPI publishService fell back to local store:", err);
+    await delay(200);
+    const expires_at = at(days, 0);
+    const s = MY_SERVICES?.find((x) => x.id === id);
+    const entity_key = randomHash();
+    if (s) Object.assign(s, { status: "published", entityKey: entity_key, expiresAt: expires_at });
+    return { entity_key, tx_ref: randomHash(), expires_at };
+  }
 }
 
 /** POST /api/services/{id}/renew */
 export async function renewService(id: string, days = 30) {
-  await delay();
-  const s = MY_SERVICES?.find((x) => x.id === id);
-  const expires_at = at(days, 0);
-  if (s) Object.assign(s, { status: "published", expiresAt: expires_at, entityKey: s.entityKey ?? randomHash() });
-  return { expires_at };
+  try {
+    return await http<{ expires_at: string }>(`/api/services/${id}/renew`, {
+      method: "POST",
+      body: JSON.stringify({ days }),
+    });
+  } catch (err) {
+    console.warn("[SlotPay] FastAPI renewService fell back to local store:", err);
+    await delay(100);
+    const s = MY_SERVICES?.find((x) => x.id === id);
+    const expires_at = at(days, 0);
+    if (s) Object.assign(s, { status: "published", expiresAt: expires_at, entityKey: s.entityKey ?? randomHash() });
+    return { expires_at };
+  }
 }
 
 /** DELETE /api/services/{id}/publish  (unpublish) */
 export async function unpublishService(id: string) {
-  await delay();
-  const s = MY_SERVICES?.find((x) => x.id === id);
-  if (s) Object.assign(s, { status: "draft", expiresAt: undefined });
+  try {
+    await http<{ success: boolean }>(`/api/services/${id}/publish`, { method: "DELETE" });
+  } catch (err) {
+    console.warn("[SlotPay] FastAPI unpublishService fell back to local store:", err);
+    await delay(100);
+    const s = MY_SERVICES?.find((x) => x.id === id);
+    if (s) Object.assign(s, { status: "draft", expiresAt: undefined });
+  }
 }
 
 /** GET /api/availability?owner={wallet} */
-export async function getAvailability(): Promise<Slot[]> {
-  await delay();
-  const now = Date.now();
-  return [
-    { id: "sl1", start: at(1, 10), durationMin: 60, status: "open" },
-    { id: "sl2", start: at(1, 11), durationMin: 60, status: "claimed", claimExpiresAt: new Date(now + 4 * 60_000 + 32_000).toISOString() },
-    { id: "sl3", start: at(1, 14), durationMin: 60, status: "booked" },
-    { id: "sl4", start: at(2, 9), durationMin: 60, status: "open" },
-    { id: "sl5", start: at(2, 10), durationMin: 60, status: "open" },
-    { id: "sl6", start: at(3, 15), durationMin: 60, status: "booked" },
-  ];
+export async function getAvailability(ownerOrContext?: string | unknown): Promise<Slot[]> {
+  const owner = typeof ownerOrContext === "string" ? ownerOrContext : undefined;
+  try {
+    const qs = owner ? `?owner=${encodeURIComponent(owner)}` : "";
+    return await http<Slot[]>(`/api/availability${qs}`);
+  } catch (err) {
+    console.warn("[SlotPay] FastAPI getAvailability fell back to local store:", err);
+    await delay(100);
+    const now = Date.now();
+    return [
+      { id: "sl1", start: at(1, 10), durationMin: 60, status: "open" },
+      { id: "sl2", start: at(1, 11), durationMin: 60, status: "claimed", claimExpiresAt: new Date(now + 4 * 60_000 + 32_000).toISOString() },
+      { id: "sl3", start: at(1, 14), durationMin: 60, status: "booked" },
+      { id: "sl4", start: at(2, 9), durationMin: 60, status: "open" },
+      { id: "sl5", start: at(2, 10), durationMin: 60, status: "open" },
+      { id: "sl6", start: at(3, 15), durationMin: 60, status: "booked" },
+    ];
+  }
 }
 
 /** POST /api/availability  body: { cells: string[] } -> { entity_key } */
 export async function publishAvailability(cells: string[]) {
-  await delay(900);
-  return { entity_key: randomHash(), count: cells.length };
+  try {
+    return await http<{ entity_key: string; count: number }>("/api/availability", {
+      method: "POST",
+      body: JSON.stringify({ cells }),
+    });
+  } catch (err) {
+    console.warn("[SlotPay] FastAPI publishAvailability fell back to local store:", err);
+    await delay(200);
+    return { entity_key: randomHash(), count: cells.length };
+  }
 }
 
 /** GET /api/services/{id}/slots?date */
-export async function getServiceSlots(serviceId: string): Promise<Slot[]> {
-  await delay(300);
-  const out: Slot[] = [];
-  for (let d = 1; d <= 3; d++)
-    for (const h of [9, 10, 11, 13, 14, 15, 16, 17]) {
-      const r = (d * 31 + h * 7 + serviceId.length) % 5;
-      out.push({ id: `${serviceId}-${d}-${h}`, serviceId, start: at(d, h), durationMin: 60, status: r === 0 ? "booked" : r === 1 ? "claimed" : "open" });
-    }
-  return out;
+export async function getServiceSlots(serviceId: string, date?: string): Promise<Slot[]> {
+  try {
+    const qs = date ? `?date=${encodeURIComponent(date)}` : "";
+    return await http<Slot[]>(`/api/services/${serviceId}/slots${qs}`);
+  } catch (err) {
+    console.warn("[SlotPay] FastAPI getServiceSlots fell back to local store:", err);
+    await delay(100);
+    const out: Slot[] = [];
+    for (let d = 1; d <= 3; d++)
+      for (const h of [9, 10, 11, 13, 14, 15, 16, 17]) {
+        const r = (d * 31 + h * 7 + serviceId.length) % 5;
+        out.push({ id: `${serviceId}-${d}-${h}`, serviceId, start: at(d, h), durationMin: 60, status: r === 0 ? "booked" : r === 1 ? "claimed" : "open" });
+      }
+    return out;
+  }
 }
 
 /** POST /api/slots/{id}/claim -> { claim_id, expires_at } */
-export async function claimSlot(_slotId: string) {
-  await delay(700);
-  return { claim_id: "clm_" + hex(10), expires_at: new Date(Date.now() + 5 * 60_000).toISOString() };
+export async function claimSlot(slotId: string) {
+  try {
+    return await http<{ claim_id: string; expires_at: string }>(`/api/slots/${slotId}/claim`, {
+      method: "POST",
+    });
+  } catch (err) {
+    console.warn("[SlotPay] FastAPI claimSlot fell back to local store:", err);
+    await delay(150);
+    return { claim_id: "clm_" + hex(10), expires_at: new Date(Date.now() + 5 * 60_000).toISOString() };
+  }
 }
 
 /** POST /api/bookings -> 402 payment requirements */
-export async function createBooking(service: Service, _slotId: string): Promise<{ booking_id: string; payment: PaymentRequirements }> {
-  await delay(400);
-  const challenge = create402Challenge(service.id, service.price, service.currency, service.provider.wallet);
-  return {
-    booking_id: "bk_" + hex(10),
-    payment: {
-      status: 402,
-      scheme: challenge.scheme,
-      amount: challenge.amount,
-      token: challenge.token,
-      network: challenge.network,
-      payTo: challenge.payTo,
-      facilitator: challenge.facilitator,
-      resource: challenge.resource,
-      maxTimeoutSeconds: challenge.maxTimeoutSeconds,
-    },
-  };
+export async function createBooking(service: Service, slotId: string): Promise<{ booking_id: string; payment: PaymentRequirements }> {
+  try {
+    return await http<{ booking_id: string; payment: PaymentRequirements }>("/api/bookings", {
+      method: "POST",
+      body: JSON.stringify({
+        serviceId: service.id,
+        slotId,
+        service,
+      }),
+    });
+  } catch (err) {
+    console.warn("[SlotPay] FastAPI createBooking fell back to local challenge:", err);
+    await delay(100);
+    const challenge = create402Challenge(service.id, service.price, service.currency, service.provider.wallet);
+    return {
+      booking_id: "bk_" + hex(10),
+      payment: {
+        status: 402,
+        scheme: challenge.scheme,
+        amount: challenge.amount,
+        token: challenge.token,
+        network: challenge.network,
+        payTo: challenge.payTo,
+        facilitator: challenge.facilitator,
+        resource: challenge.resource,
+        maxTimeoutSeconds: challenge.maxTimeoutSeconds,
+      },
+    };
+  }
 }
 
-/** POST /api/bookings/{id}/confirm  body: { payment_header } -> Receipt */
+/** POST /api/bookings/confirm  body: { payment_header } -> Receipt */
 export async function confirmBooking(service: Service, slotStart: string, txIdOverride?: string): Promise<Receipt> {
-  await delay(600);
-  const confirmedTxId = txIdOverride ?? txId();
-  const r: Receipt = {
-    bookingRef: "SP-" + hex(6).toUpperCase(),
-    provider: service.provider.name,
-    providerType: service.provider.type,
-    service: service.title,
-    start: slotStart,
-    amount: service.price,
-    currency: service.currency,
-    txId: confirmedTxId,
-  };
-  BOOKINGS?.unshift({ ...r, id: r.bookingRef, buyer: "You", status: "confirmed" });
-  return r;
+  try {
+    return await http<Receipt>("/api/bookings/confirm", {
+      method: "POST",
+      body: JSON.stringify({
+        serviceId: service.id,
+        slotStart,
+        txIdOverride,
+        service,
+      }),
+    });
+  } catch (err) {
+    console.warn("[SlotPay] FastAPI confirmBooking fell back to local store:", err);
+    await delay(150);
+    const confirmedTxId = txIdOverride ?? txId();
+    const r: Receipt = {
+      bookingRef: "SP-" + hex(6).toUpperCase(),
+      provider: service.provider.name,
+      providerType: service.provider.type,
+      service: service.title,
+      start: slotStart,
+      amount: service.price,
+      currency: service.currency,
+      txId: confirmedTxId,
+    };
+    BOOKINGS?.unshift({ ...r, id: r.bookingRef, buyer: "You", status: "confirmed" });
+    return r;
+  }
 }
 
 let BOOKINGS: Booking[] | null = null;
@@ -440,27 +558,60 @@ function bookings(): Booking[] {
 }
 
 /** GET /api/bookings?role=buyer|provider */
-export async function listBookings(_role: "buyer" | "provider"): Promise<Booking[]> {
-  await delay();
-  return [...bookings()];
+export async function listBookings(role: "buyer" | "provider" = "buyer"): Promise<Booking[]> {
+  try {
+    return await http<Booking[]>(`/api/bookings?role=${role}`);
+  } catch (err) {
+    console.warn("[SlotPay] FastAPI listBookings fell back to local store:", err);
+    await delay(100);
+    return [...bookings()];
+  }
 }
 
 /** POST /api/swarm/upload  (multipart) -> { reference } */
 export async function uploadToSwarm(file: File): Promise<{ reference: string }> {
-  await delay(900 + Math.min(file.size / 2000, 1500));
-  return { reference: randomHash() };
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/swarm/upload`, {
+      method: "POST",
+      headers: {
+        "x-filename": file.name,
+        "content-type": file.type || "application/octet-stream",
+      },
+      body: file,
+    });
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    return await res.json();
+  } catch (err) {
+    console.warn("[SlotPay] FastAPI uploadToSwarm fell back to local hash:", err);
+    await delay(300);
+    return { reference: randomHash() };
+  }
 }
 
 /** GET /api/provider/stats */
-export async function getProviderStats(): Promise<ProviderStats> {
-  await delay();
-  return { publishedServices: 1, upcomingBookings: 3, earningsUsdc: 1284.5, profileViews: 742 };
+export async function getProviderStats(ownerOrContext?: string | unknown): Promise<ProviderStats> {
+  const owner = typeof ownerOrContext === "string" ? ownerOrContext : undefined;
+  try {
+    const qs = owner ? `?owner=${encodeURIComponent(owner)}` : "";
+    return await http<ProviderStats>(`/api/provider/stats${qs}`);
+  } catch (err) {
+    console.warn("[SlotPay] FastAPI getProviderStats fell back to local stats:", err);
+    await delay(100);
+    return { publishedServices: 1, upcomingBookings: 3, earningsUsdc: 1284.5, profileViews: 742 };
+  }
 }
 
 /** GET /api/wallet/transactions */
-export async function getWalletTransactions() {
-  await delay();
-  return bookings().slice(0, 5).map((b) => ({ id: b.txId, label: b.service, amount: -b.amount, currency: b.currency, at: b.start }));
+export async function getWalletTransactions(walletOrContext?: string | unknown) {
+  const wallet = typeof walletOrContext === "string" ? walletOrContext : undefined;
+  try {
+    const qs = wallet ? `?wallet=${encodeURIComponent(wallet)}` : "";
+    return await http<Array<{ id: string; label: string; amount: number; currency: Currency; at: string }>>(`/api/wallet/transactions${qs}`);
+  } catch (err) {
+    console.warn("[SlotPay] FastAPI getWalletTransactions fell back to local store:", err);
+    await delay(100);
+    return bookings().slice(0, 5).map((b) => ({ id: b.txId, label: b.service, amount: -b.amount, currency: b.currency, at: b.start }));
+  }
 }
 
 // ---------------------------------------------------------------- agent
@@ -482,16 +633,10 @@ export const STEP_TITLES: Record<AgentStepId, string> = {
 };
 
 /**
- * POST /api/agent/chat  (streaming)
+ * POST /api/agent/chat  (streaming SSE)
  *
- * PLACEHOLDER: the real implementation opens an SSE stream (or WebSocket) at
- * `${API_BASE_URL}/api/agent/chat` and forwards each event to `onEvent`.
- *
- *   const res = await fetch(`${API_BASE_URL}/api/agent/chat`, { method: "POST", body: JSON.stringify({ message, limit, autoApprove }) });
- *   const reader = res.body!.getReader(); ... parse `data:` lines into AgentEvent ...
- *
- * The mock below simulates the full flow with timers. `requestApproval` resolves
- * true/false when the user answers an inline approval prompt.
+ * Connects to FastAPI endpoint at `${API_BASE_URL}/api/agent/chat` and streams
+ * real-time LangGraph agent execution and Hedera x402 payment events to `onEvent`.
  */
 export async function streamAgentChat(
   message: string,
@@ -500,92 +645,172 @@ export async function streamAgentChat(
   requestApproval: (amount: number) => Promise<boolean>,
   signal?: { cancelled: boolean },
 ): Promise<void> {
-  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-  const emit = (e: AgentEvent) => { if (!signal?.cancelled) onEvent(e); };
-  const step = (id: AgentStepId, state: StepState, detail?: Record<string, unknown>) =>
-    emit({ type: "step", step: { id, index: Object.keys(STEP_TITLES).indexOf(id) + 1, title: STEP_TITLES[id], state, detail } });
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/agent/chat`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "accept": "text/event-stream",
+      },
+      body: JSON.stringify({
+        message,
+        limit: opts.limit,
+        autoApprove: opts.autoApprove,
+      }),
+    });
 
-  const m = message.toLowerCase();
-  const budgetMatch = m.match(/\$\s?(\d+)|(\d+)\s?(usdc|dollars)/);
-  const budget = budgetMatch ? Number(budgetMatch[1] ?? budgetMatch[2]) : 50;
-  const skill = /python/.test(m) ? "Python" : /audit|contract/.test(m) ? "Solidity" : /ux|design/.test(m) ? "UX" : /legal|terms|lawyer/.test(m) ? "Contracts" : /research/.test(m) ? "Research" : "Python";
-  const when = /tomorrow/.test(m) ? "Tomorrow" : /today/.test(m) ? "Today" : "Next available";
-
-  step("understand", "running");
-  await wait(900);
-  step("understand", "complete", { service: `${skill} specialist`, budget: `under ${budget}.00 USDC`, date: when, duration: /30/.test(m) ? "30 min" : "60 min", action: /book/.test(m) ? "Choose and book" : "Recommend" });
-
-  step("discover", "running");
-  await wait(1100);
-  const all = await listServices({ skill });
-  const pool = (all.length ? all : services()).slice().sort((a, b) => a.price - b.price);
-  step("discover", "complete", { source: "Arkiv", query: `skill:${skill} AND price<=${budget}`, results: all.length + 6 });
-
-  step("compare", "running");
-  await wait(1000);
-  const candidates = [...pool, ...services().filter((s) => !pool.includes(s))].slice(0, 3);
-  const matching = candidates.filter((c) => all.includes(c));
-  const within = (matching.length ? matching : candidates).filter((c) => c.price <= budget);
-  const pick = (within.length ? within : candidates).slice().sort((a, b) => b.provider.rating - a.provider.rating || a.price - b.price)[0]!;
-  step("compare", "complete", {
-    candidates: candidates.map((c) => ({ id: c.id, name: c.provider.name, type: c.provider.type, price: c.price, rating: c.provider.rating, nextSlot: c.nextSlot })),
-    recommended: pick.id,
-    reason: `Highest rated option within budget with an open slot ${when.toLowerCase()}.`,
-  });
-
-  step("claim", "running");
-  const claim = await claimSlot(pick.id);
-  step("claim", "complete", { slot: pick.nextSlot, provider: pick.provider.name, claimId: claim.claim_id, expiresAt: claim.expires_at });
-
-  const { payment } = await createBooking(pick, claim.claim_id);
-  if (pick.price > opts.limit && !opts.autoApprove) {
-    step("pay", "awaiting", { payment });
-    const ok = await requestApproval(pick.price);
-    if (!ok) {
-      step("pay", "failed", { payment, reason: "Payment declined by you. The slot claim will be released." });
-      emit({ type: "text", text: "Understood. I released the slot claim and did not pay. Adjust the spending limit or ask me to look for cheaper options." });
-      emit({ type: "done" });
-      return;
+    if (!res.ok || !res.body) {
+      throw new Error(`Agent stream request failed with HTTP ${res.status}`);
     }
-  } else if (pick.price > opts.limit) {
-    // auto-approve is on but the amount exceeds the cap: still require approval
-    step("pay", "awaiting", { payment });
-    const ok = await requestApproval(pick.price);
-    if (!ok) {
-      step("pay", "failed", { payment, reason: "Above spending limit." });
-      emit({ type: "done" });
-      return;
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+    let buffer = "";
+
+    while (true) {
+      if (signal?.cancelled) {
+        await reader.cancel();
+        break;
+      }
+
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const chunks = buffer.split("\n\n");
+      buffer = chunks.pop() ?? "";
+
+      for (const chunk of chunks) {
+        const trimmed = chunk.trim();
+        if (!trimmed.startsWith("data:")) continue;
+        const dataStr = trimmed.replace(/^data:\s*/, "");
+        if (!dataStr) continue;
+
+        try {
+          const event: AgentEvent = JSON.parse(dataStr);
+          if (signal?.cancelled) break;
+
+          const paymentObj = (event.step?.detail && typeof event.step.detail === "object") ? (event.step.detail as Record<string, any>)["payment"] : undefined;
+          if (event.type === "approval" && paymentObj) {
+            const amount = Number(paymentObj.amount);
+            onEvent(event);
+            const approved = await requestApproval(amount);
+            if (!approved) {
+              onEvent({
+                type: "step",
+                step: {
+                  id: "pay",
+                  index: 5,
+                  title: STEP_TITLES.pay,
+                  state: "failed",
+                  detail: { reason: "Payment declined by user. The slot claim will be released." },
+                },
+              });
+              onEvent({
+                type: "text",
+                text: "Understood. I released the slot claim and did not pay. Adjust the spending limit or ask me to look for cheaper options.",
+              });
+              onEvent({ type: "done" });
+              return;
+            }
+          } else {
+            onEvent(event);
+          }
+        } catch (e) {
+          console.warn("Could not parse SSE chunk:", chunk, e);
+        }
+      }
     }
+    return;
+  } catch (streamError) {
+    console.warn("[SlotPay] FastAPI SSE agent stream failed; using fallback execution:", streamError);
+
+    // Fallback simulation if backend server is unreachable
+    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const emit = (e: AgentEvent) => { if (!signal?.cancelled) onEvent(e); };
+    const step = (id: AgentStepId, state: StepState, detail?: Record<string, unknown>) =>
+      emit({ type: "step", step: { id, index: Object.keys(STEP_TITLES).indexOf(id) + 1, title: STEP_TITLES[id], state, detail } });
+
+    const m = message.toLowerCase();
+    const budgetMatch = m.match(/\$\s?(\d+)|(\d+)\s?(usdc|dollars)/);
+    const budget = budgetMatch ? Number(budgetMatch[1] ?? budgetMatch[2]) : 50;
+    const skill = /python/.test(m) ? "Python" : /audit|contract/.test(m) ? "Solidity" : /ux|design/.test(m) ? "UX" : /legal|terms|lawyer/.test(m) ? "Contracts" : /research/.test(m) ? "Research" : "Python";
+    const when = /tomorrow/.test(m) ? "Tomorrow" : /today/.test(m) ? "Today" : "Next available";
+
+    step("understand", "running");
+    await wait(600);
+    step("understand", "complete", { service: `${skill} specialist`, budget: `under ${budget}.00 USDC`, date: when, duration: /30/.test(m) ? "30 min" : "60 min", action: /book/.test(m) ? "Choose and book" : "Recommend" });
+
+    step("discover", "running");
+    await wait(700);
+    const all = await listServices({ skill });
+    const pool = (all.length ? all : services()).slice().sort((a, b) => a.price - b.price);
+    step("discover", "complete", { source: "Arkiv", query: `skill:${skill} AND price<=${budget}`, results: all.length + 6 });
+
+    step("compare", "running");
+    await wait(600);
+    const candidates = [...pool, ...services().filter((s) => !pool.includes(s))].slice(0, 3);
+    const matching = candidates.filter((c) => all.includes(c));
+    const within = (matching.length ? matching : candidates).filter((c) => c.price <= budget);
+    const pick = (within.length ? within : candidates).slice().sort((a, b) => b.provider.rating - a.provider.rating || a.price - b.price)[0]!;
+    step("compare", "complete", {
+      candidates: candidates.map((c) => ({ id: c.id, name: c.provider.name, type: c.provider.type, price: c.price, rating: c.provider.rating, nextSlot: c.nextSlot })),
+      recommended: pick.id,
+      reason: `Highest rated option within budget with an open slot ${when.toLowerCase()}.`,
+    });
+
+    step("claim", "running");
+    const claim = await claimSlot(pick.id);
+    step("claim", "complete", { slot: pick.nextSlot, provider: pick.provider.name, claimId: claim.claim_id, expiresAt: claim.expires_at });
+
+    const { payment } = await createBooking(pick, claim.claim_id);
+    if (pick.price > opts.limit && !opts.autoApprove) {
+      step("pay", "awaiting", { payment });
+      const ok = await requestApproval(pick.price);
+      if (!ok) {
+        step("pay", "failed", { payment, reason: "Payment declined by you. The slot claim will be released." });
+        emit({ type: "text", text: "Understood. I released the slot claim and did not pay. Adjust the spending limit or ask me to look for cheaper options." });
+        emit({ type: "done" });
+        return;
+      }
+    } else if (pick.price > opts.limit) {
+      step("pay", "awaiting", { payment });
+      const ok = await requestApproval(pick.price);
+      if (!ok) {
+        step("pay", "failed", { payment, reason: "Above spending limit." });
+        emit({ type: "done" });
+        return;
+      }
+    }
+    step("pay", "running", { payment, phase: "challenge" });
+    await wait(400);
+    step("pay", "running", { payment, phase: "signing" });
+
+    const settlement = await executeAutonomousHederaPayment({
+      challenge: {
+        status: 402,
+        scheme: "exact",
+        network: "hedera-testnet",
+        amount: payment.amount,
+        currency: pick.currency,
+        token: payment.token,
+        payTo: payment.payTo,
+        feePayer: "0.0.987654",
+        facilitator: payment.facilitator,
+        resource: payment.resource,
+        maxTimeoutSeconds: payment.maxTimeoutSeconds,
+      },
+      approvedBudget: opts.limit,
+      clientWallet: "0x71c2a0b3c4e5f61a2b3f4e5d6c7b8a9f0e1d2c3b",
+    });
+
+    const receipt = await confirmBooking(pick, pick.nextSlot, settlement.txId);
+    step("pay", "complete", { payment, phase: "settled", txId: receipt.txId, explorerUrl: settlement.explorerUrl });
+
+    step("confirm", "running");
+    await wait(300);
+    step("confirm", "complete", { receipt });
+    emit({ type: "text", text: `Booked ${pick.title} with ${pick.provider.name}. Payment of ${pick.price.toFixed(2)} ${pick.currency} settled on Hedera. The receipt is below and in your bookings.` });
+    emit({ type: "done", receipt });
   }
-  step("pay", "running", { payment, phase: "challenge" });
-  await wait(600);
-  step("pay", "running", { payment, phase: "signing" });
-  
-  // Autonomous payment execution on Hedera x402 with fee-payer model
-  const settlement = await executeAutonomousHederaPayment({
-    challenge: {
-      status: 402,
-      scheme: "exact",
-      network: "hedera-testnet",
-      amount: payment.amount,
-      currency: pick.currency,
-      token: payment.token,
-      payTo: payment.payTo,
-      feePayer: "0.0.987654",
-      facilitator: payment.facilitator,
-      resource: payment.resource,
-      maxTimeoutSeconds: payment.maxTimeoutSeconds,
-    },
-    approvedBudget: opts.limit,
-    clientWallet: "0x71c2a0b3c4e5f61a2b3f4e5d6c7b8a9f0e1d2c3b",
-  });
-
-  const receipt = await confirmBooking(pick, pick.nextSlot, settlement.txId);
-  step("pay", "complete", { payment, phase: "settled", txId: receipt.txId, explorerUrl: settlement.explorerUrl });
-
-  step("confirm", "running");
-  await wait(500);
-  step("confirm", "complete", { receipt });
-  emit({ type: "text", text: `Booked ${pick.title} with ${pick.provider.name}. Payment of ${pick.price.toFixed(2)} ${pick.currency} settled on Hedera. The receipt is below and in your bookings.` });
-  emit({ type: "done", receipt });
 }

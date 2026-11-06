@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router";
-import { readStoredAuth } from "@/lib/auth";
+import { readStoredAuth } from "@/lib/auth-storage";
 import { AccountMenu, WalletChip } from "@/components/sp/account-menu";
 import { Wordmark } from "@/components/sp/primitives";
 

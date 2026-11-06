@@ -1,21 +1,76 @@
 """
-SlotPay Backend - Autonomous Commerce Demo.
-
-Demonstrates:
-1. Natural language query parsing into Arkiv database schema.
-2. Arkiv open service discovery and candidate ranking.
-3. Availability slot reservation claim.
-4. Hedera x402 autonomous payment execution within approved budget cap.
-5. Strict budget protection when requested price exceeds authorized limit.
+SlotPay Backend - Autonomous Commerce Network.
+FastAPI Application linking Frontend, Arkiv Web3 Database, and Hedera x402 Autonomous Payments.
 """
 
 from __future__ import annotations
 
-import json
 from datetime import datetime
-from agent.graph import execute_autonomous_agent, parse_service_query
+import os
+import sys
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+
+from agent.graph import execute_autonomous_agent
+from config import ARKIV_RABDI_RPC
+from routers import (
+    agent_router,
+    availability_router,
+    bookings_router,
+    provider_router,
+    services_router,
+    swarm_router,
+    wallet_router,
+)
+
+# -----------------------------------------------------------------------------
+# FastAPI App Initialization
+# -----------------------------------------------------------------------------
+app = FastAPI(
+    title="SlotPay API",
+    description="Autonomous Commerce Network powered by Arkiv Web3 Database and Hedera x402 Payments.",
+    version="1.0.0",
+)
+
+# Enable CORS for frontend clients (Vite, TanStack Start, Next.js, etc.)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Mount API Routers
+app.include_router(services_router)
+app.include_router(availability_router)
+app.include_router(bookings_router)
+app.include_router(agent_router)
+app.include_router(swarm_router)
+app.include_router(provider_router)
+app.include_router(wallet_router)
 
 
+@app.get("/")
+@app.get("/api/health")
+def health_check() -> dict:
+    """System health check and network configuration."""
+    return {
+        "status": "healthy",
+        "service": "SlotPay Autonomous Commerce API",
+        "version": "1.0.0",
+        "database": "Arkiv Rabdi Testnet",
+        "arkiv_rpc": ARKIV_RABDI_RPC,
+        "payments": "Hedera x402 (fee-payer exact scheme)",
+        "network": os.getenv("HEDERA_NETWORK", "hedera:testnet"),
+        "timestamp": datetime.now().isoformat() + "Z",
+    }
+
+
+# -----------------------------------------------------------------------------
+# CLI Autonomous Agent Demo Execution
+# -----------------------------------------------------------------------------
 def run_autonomous_demo() -> None:
     ref_date = datetime.now().strftime("%Y-%m-%d (%A)")
     print("=" * 80)
@@ -23,9 +78,7 @@ def run_autonomous_demo() -> None:
     print(f" Reference Date: {ref_date}")
     print("=" * 80)
 
-    # -------------------------------------------------------------------------
-    # Scenario 1: Autonomous Flow under Approved Budget ($20 budget, $18 service)
-    # -------------------------------------------------------------------------
+    # Scenario 1: Autonomous Flow under Approved Budget
     query_1 = (
         "Find me a Python developer available tomorrow for a one-hour consultation "
         "under $20. Choose the best available option and book it."
@@ -35,12 +88,12 @@ def run_autonomous_demo() -> None:
     print("-" * 80)
 
     state_1 = execute_autonomous_agent(query_1, reference_date=ref_date)
-    parsed_1 = state_1["parsed_request"]
-
-    print(f"1. Interpreted Request: {parsed_1.summary}")
-    print(f"   Action:              {parsed_1.agent_decision.action.value}")
-    print(f"   Strategy:            {parsed_1.agent_decision.selection_strategy.value}")
-    print(f"   Approved Budget Cap: ${parsed_1.agent_decision.auto_approve_budget:.2f} USDC")
+    parsed_1 = state_1.get("parsed_request")
+    if parsed_1:
+        print(f"1. Interpreted Request: {parsed_1.summary}")
+        print(f"   Action:              {parsed_1.agent_decision.action.value}")
+        print(f"   Strategy:            {parsed_1.agent_decision.selection_strategy.value}")
+        print(f"   Approved Budget Cap: ${parsed_1.agent_decision.auto_approve_budget:.2f} USDC")
 
     print("\n2. Arkiv Discovery:")
     print(f"   Discovered Services: {len(state_1.get('discovered_services', []))} listings matching filter.")
@@ -75,9 +128,7 @@ def run_autonomous_demo() -> None:
     else:
         print(f"   [STATUS: AWAITING APPROVAL]")
 
-    # -------------------------------------------------------------------------
-    # Scenario 2: Budget Cap Protection (Service costs $120, user budget $50)
-    # -------------------------------------------------------------------------
+    # Scenario 2: Budget Cap Protection
     query_2 = (
         "Find me a smart contract auditor for my Solidity contracts under $50. "
         "Choose the best option and book it."
@@ -88,10 +139,10 @@ def run_autonomous_demo() -> None:
     print("-" * 80)
 
     state_2 = execute_autonomous_agent(query_2, reference_date=ref_date)
-    parsed_2 = state_2["parsed_request"]
-
-    print(f"1. Interpreted Request: {parsed_2.summary}")
-    print(f"   Approved Budget Cap: ${parsed_2.agent_decision.auto_approve_budget:.2f} USDC")
+    parsed_2 = state_2.get("parsed_request")
+    if parsed_2:
+        print(f"1. Interpreted Request: {parsed_2.summary}")
+        print(f"   Approved Budget Cap: ${parsed_2.agent_decision.auto_approve_budget:.2f} USDC")
 
     print("\n2. Arkiv Discovery & Price Check:")
     selected_2 = state_2.get("selected_service")
@@ -107,4 +158,11 @@ def run_autonomous_demo() -> None:
 
 
 if __name__ == "__main__":
-    run_autonomous_demo()
+    if "--demo" in sys.argv:
+        run_autonomous_demo()
+    else:
+        # Run FastAPI with Uvicorn
+        port = int(os.getenv("PORT", "8000"))
+        host = os.getenv("HOST", "0.0.0.0")
+        print(f"Starting SlotPay FastAPI server on {host}:{port}...")
+        uvicorn.run("main:app", host=host, port=port, reload=True)

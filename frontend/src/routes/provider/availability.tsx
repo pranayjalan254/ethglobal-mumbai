@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { getAvailability, publishAvailability } from "@/lib/api";
+import { publishAvailabilityOnChain } from "@/lib/arkiv";
+import { useAuth } from "@/lib/auth";
 import { dt } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Countdown, Empty, ErrorBlock, Mono, PageHeader, ProgressLine, RuledTable, SkeletonRows, Status } from "@/components/sp/primitives";
@@ -15,6 +17,7 @@ const HOURS = Array.from({ length: 11 }, (_, i) => 8 + i);
 const DEFAULT = new Set(["0-10", "0-11", "1-10", "1-11", "1-14", "2-9", "2-10", "3-15", "3-16", "4-10"]);
 
 function Availability() {
+  const { walletAddress, getEthereumProvider, profile } = useAuth();
   const q = useQuery({ queryKey: ["availability"], queryFn: getAvailability });
   const [cells, setCells] = useState<Set<string>>(new Set(DEFAULT));
   const [busy, setBusy] = useState(false);
@@ -41,9 +44,40 @@ function Availability() {
         action={
           <Button disabled={busy || cells.size === 0} onClick={async () => {
             setBusy(true);
-            const r = await publishAvailability([...cells]);
-            setBusy(false);
-            toast(`Published ${r.count} hourly blocks to Arkiv`);
+            try {
+              let txHash = "";
+              if (walletAddress) {
+                try {
+                  toast.loading("Requesting wallet signature on Rabdi testnet...", { id: "arkiv-avail-tx" });
+                  const provider = await getEthereumProvider();
+                  const onChain = await publishAvailabilityOnChain(
+                    provider,
+                    walletAddress,
+                    [...cells],
+                    profile?.displayName || "Provider"
+                  );
+                  txHash = onChain.tx_ref;
+                  toast.success(`Published ${onChain.count} blocks to Arkiv Rabdi! Tx: ${txHash.slice(0, 14)}...`, {
+                    id: "arkiv-avail-tx",
+                    description: `Entity key: ${onChain.entity_key.slice(0, 18)}...`,
+                    action: {
+                      label: "View Explorer",
+                      onClick: () => window.open(`https://rabdi.explorer.arkiv.network/tx/${txHash}`, "_blank"),
+                    },
+                  });
+                } catch (onChainErr: any) {
+                  console.warn("[SlotPay] On-chain publish notice:", onChainErr);
+                  toast.error(`On-chain notice: ${onChainErr?.message || onChainErr}`, { id: "arkiv-avail-tx" });
+                }
+              }
+              const r = await publishAvailability([...cells]);
+              if (!txHash) {
+                toast(`Published ${r.count} hourly blocks to Arkiv`);
+              }
+              q.refetch();
+            } finally {
+              setBusy(false);
+            }
           }}>Publish availability to Arkiv</Button>
         }
       />

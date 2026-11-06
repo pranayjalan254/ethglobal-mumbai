@@ -22,7 +22,7 @@ class TestArkivClient(unittest.TestCase):
         self.assertIn("arkiv.schema = str('slotpay.services.v1')", q)
         self.assertIn("category = str('Engineering')", q)
         self.assertIn("providerType = str('human')", q)
-        self.assertIn("price <= dec('20.00')", q)
+        self.assertIn("price <= dec(20.00)", q)
         self.assertIn("durationMin = i32(60)", q)
 
     def test_arkiv_query_services(self):

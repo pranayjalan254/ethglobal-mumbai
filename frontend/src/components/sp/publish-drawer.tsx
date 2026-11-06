@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { publishService, type Service } from "@/lib/api";
-import { getArkivExpiration } from "@/lib/arkiv";
+import { getArkivExpiration, publishServiceOnChain } from "@/lib/arkiv";
 import { useAuth } from "@/lib/auth";
 import { dateOnly } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -12,7 +13,7 @@ import { CopyButton, Eyebrow, Field, inputCls, Mono, ProgressLine, Segmented } f
 const STEPS = ["Preparing entity", "Signing with wallet", "Writing to Arkiv", "Confirmed"];
 
 export function PublishDrawer({ service, onClose }: { service: Service | null; onClose: () => void }) {
-  const { walletAddress } = useAuth();
+  const { walletAddress, getEthereumProvider } = useAuth();
   const qc = useQueryClient();
   const [exp, setExp] = useState<"7" | "30" | "90" | "custom">("30");
   const [custom, setCustom] = useState(14);
@@ -23,15 +24,42 @@ export function PublishDrawer({ service, onClose }: { service: Service | null; o
 
   async function run() {
     if (!service) return;
-    setStep(0);
-    await new Promise((r) => setTimeout(r, 700));
-    setStep(1);
-    await new Promise((r) => setTimeout(r, 900));
-    setStep(2);
-    const res = await publishService(service.id, days);
-    setResult(res);
-    setStep(3);
-    qc.invalidateQueries({ queryKey: ["my-services"] });
+    try {
+      setStep(0); // Preparing entity
+      await new Promise((r) => setTimeout(r, 400));
+
+      setStep(1); // Signing with wallet
+      let entityKey = "";
+      let txHash = "";
+      let expiresAt = "";
+
+      if (walletAddress) {
+        try {
+          const provider = await getEthereumProvider();
+          setStep(2); // Writing to Arkiv
+          const onChain = await publishServiceOnChain(provider, walletAddress, service, days);
+          entityKey = onChain.entity_key;
+          txHash = onChain.tx_ref;
+          expiresAt = onChain.expires_at;
+        } catch (onChainErr: any) {
+          console.warn("[SlotPay] Real on-chain publish notice:", onChainErr);
+          toast.error(`On-chain transaction notice: ${onChainErr?.message || onChainErr}`);
+        }
+      }
+
+      const res = await publishService(service.id, days);
+      setResult({
+        entity_key: entityKey || res.entity_key,
+        tx_ref: txHash || res.tx_ref,
+        expires_at: expiresAt || res.expires_at,
+      });
+      setStep(3); // Confirmed
+      qc.invalidateQueries({ queryKey: ["my-services"] });
+    } catch (err: any) {
+      console.error("[SlotPay] Publish error:", err);
+      toast.error(`Publishing failed: ${err?.message || err}`);
+      setStep(-1);
+    }
   }
 
   function close() {
@@ -81,7 +109,24 @@ export function PublishDrawer({ service, onClose }: { service: Service | null; o
           {result && (
             <dl className="mono space-y-3 border border-hairline bg-surface-raised p-4">
               <div><dt className="eyebrow">Entity key</dt><dd className="flex items-center gap-1 break-all">{result.entity_key.slice(0, 34)}...<CopyButton value={result.entity_key} /></dd></div>
-              <div><dt className="eyebrow">Transaction</dt><dd className="flex items-center gap-1 break-all">{result.tx_ref.slice(0, 34)}...<CopyButton value={result.tx_ref} /></dd></div>
+              <div>
+                <dt className="eyebrow">Transaction</dt>
+                <dd className="flex items-center gap-1 break-all">
+                  {result.tx_ref.startsWith("0x") ? (
+                    <a
+                      href={`https://rabdi.explorer.arkiv.network/tx/${result.tx_ref}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="link-u text-accent"
+                    >
+                      {result.tx_ref.slice(0, 24)}...
+                    </a>
+                  ) : (
+                    <span>{result.tx_ref.slice(0, 24)}...</span>
+                  )}
+                  <CopyButton value={result.tx_ref} />
+                </dd>
+              </div>
               <div><dt className="eyebrow">Expires</dt><dd>{dateOnly(result.expires_at)}</dd></div>
             </dl>
           )}

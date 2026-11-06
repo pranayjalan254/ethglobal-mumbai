@@ -8,6 +8,7 @@ import {
   useConnectOrCreateWallet,
 } from "@privy-io/react-auth";
 import { useAuth } from "./auth";
+import { arkivChain } from "./arkiv";
 
 function Bridge() {
   const { ready, authenticated, user } = usePrivy();
@@ -62,10 +63,35 @@ function Bridge() {
       logout: async () => {
         logout();
       },
+      getEthereumProvider: async () => {
+        const targetWallet =
+          wallets.find(
+            (w) => w.address.toLowerCase() === auth.walletAddress?.toLowerCase(),
+          ) ?? wallets[0];
+
+        if (targetWallet) {
+          try {
+            const currentChain = targetWallet.chainId;
+            if (
+              currentChain !== `eip155:${arkivChain.id}` &&
+              (currentChain as any) !== arkivChain.id
+            ) {
+              await targetWallet.switchChain(arkivChain.id);
+            }
+          } catch (switchErr) {
+            console.warn("[SlotPay] Privy switchChain notice:", switchErr);
+          }
+          return await targetWallet.getEthereumProvider();
+        }
+        if (typeof window !== "undefined" && (window as any).ethereum) {
+          return (window as any).ethereum;
+        }
+        throw new Error("No connected Privy wallet found.");
+      },
     });
     return () => auth._registerBridge(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [login, logout, connectOrCreateWallet]);
+  }, [login, logout, connectOrCreateWallet, wallets, auth.walletAddress]);
 
   // Propagate Privy's ready state so the UI can enable/disable auth buttons
   useEffect(() => {
@@ -94,6 +120,8 @@ export default function PrivyBridge({ appId }: { appId: string }) {
     <PrivyProvider
       appId={appId}
       config={{
+        defaultChain: arkivChain,
+        supportedChains: [arkivChain],
         // Supported login methods shown in the Privy modal
         loginMethods: ["email", "wallet"],
         embeddedWallets: {

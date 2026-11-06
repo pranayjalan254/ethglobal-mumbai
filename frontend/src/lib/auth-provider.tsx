@@ -1,62 +1,16 @@
-import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ClientOnly } from "@tanstack/react-router";
-
-export type Role = "provider" | "buyer";
-
-export interface ProviderProfile {
-  displayName: string;
-  providerType: "human" | "ai";
-  headline: string;
-  bio: string;
-  category: string;
-}
-
-export interface StoredAuth {
-  walletAddress: string | null;
-  email: string | null;
-  role: Role | null;
-  profile: ProviderProfile | null;
-}
-
-const KEY = "slotpay.auth.v1";
-const empty: StoredAuth = { walletAddress: null, email: null, role: null, profile: null };
-
-export function readStoredAuth(): StoredAuth {
-  if (typeof window === "undefined") return empty;
-  try {
-    return { ...empty, ...JSON.parse(localStorage.getItem(KEY) ?? "{}") };
-  } catch {
-    return empty;
-  }
-}
-
-function writeStoredAuth(a: StoredAuth) {
-  localStorage.setItem(KEY, JSON.stringify(a));
-}
-
-export interface PrivyBridgeApi {
-  login: (method: "email" | "wallet") => void;
-  logout: () => void | Promise<void>;
-}
-
-interface AuthContextValue {
-  user: { email: string | null } | null;
-  walletAddress: string | null;
-  role: Role | null;
-  profile: ProviderProfile | null;
-  isReady: boolean;
-  usingPrivy: boolean;
-  login: (method?: "email" | "wallet") => void;
-  logout: () => Promise<void>;
-  setRole: (r: Role) => void;
-  setProfile: (p: ProviderProfile) => void;
-  /** internal: called by the Privy bridge */
-  _onAuthenticated: (wallet: string, email: string | null) => void;
-  _registerBridge: (api: PrivyBridgeApi | null) => void;
-  _setReady: (r: boolean) => void;
-}
-
-const AuthContext = createContext<AuthContextValue | null>(null);
+import {
+  EMPTY_STORED_AUTH,
+  readStoredAuth,
+  writeStoredAuth,
+  type StoredAuth,
+} from "./auth-storage";
+import {
+  AuthContext,
+  type AuthContextValue,
+  type PrivyBridgeApi,
+} from "./auth";
 
 const PRIVY_APP_ID = import.meta.env["VITE_PRIVY_APP_ID"] as string | undefined;
 const PrivyBridge = lazy(() => import("./privy-bridge"));
@@ -69,7 +23,7 @@ function mockWallet() {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<StoredAuth>(empty);
+  const [state, setState] = useState<StoredAuth>(EMPTY_STORED_AUTH);
   const [hydrated, setHydrated] = useState(false);
   const [privyReady, setPrivyReady] = useState(!PRIVY_APP_ID);
   const bridge = useRef<PrivyBridgeApi | null>(null);
@@ -98,11 +52,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login: (method = "email") => {
         if (bridge.current) return bridge.current.login(method);
         // Demo fallback when VITE_PRIVY_APP_ID is not configured.
-        setTimeout(() => update({ walletAddress: mockWallet(), email: method === "email" ? "demo@slotpay.network" : null }), 900);
+        setTimeout(
+          () =>
+            update({
+              walletAddress: mockWallet(),
+              email: method === "email" ? "demo@slotpay.network" : null,
+            }),
+          900,
+        );
       },
       logout: async () => {
         await bridge.current?.logout();
         update({ walletAddress: null, email: null });
+      },
+      getEthereumProvider: async () => {
+        if (bridge.current?.getEthereumProvider) {
+          return await bridge.current.getEthereumProvider();
+        }
+        if (typeof window !== "undefined" && (window as any).ethereum) {
+          return (window as any).ethereum;
+        }
+        throw new Error("No Web3 wallet provider available. Please connect with Privy or MetaMask.");
       },
       setRole: (role) => update({ role }),
       setProfile: (profile) => update({ profile }),
@@ -129,8 +99,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
-  return ctx;
-}
