@@ -15,9 +15,9 @@ export const Route = createFileRoute("/onboarding")({
   }),
   head: () => ({
     meta: [
-      { title: "Get started — OASIS Protocol" },
+      { title: "Get started - OASIS Protocol" },
       { name: "description", content: "Choose a role and sign in to create your OASIS Protocol wallet." },
-      { property: "og:title", content: "Get started — OASIS Protocol" },
+      { property: "og:title", content: "Get started - OASIS Protocol" },
       { property: "og:description", content: "Choose a role and sign in to the open service network." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

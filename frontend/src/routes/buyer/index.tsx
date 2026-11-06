@@ -14,9 +14,9 @@ import { ReceiptView } from "@/components/sp/receipt";
 export const Route = createFileRoute("/buyer/")({ component: Agent });
 
 const EXAMPLES = [
-  "Find me a Python developer available tomorrow for a one-hour consultation under $20. Choose the best option and book it.",
-  "Book a UX review of our onboarding flow this week, budget $50.",
-  "Get a cited market research brief on agent payments today for under $15 and pay for it.",
+  "Find me a Python developer available tomorrow for a one-hour consultation under $2. Choose the best option and book it.",
+  "Book a UX review of our onboarding flow this week, for an hour with a consultant. My budget is $0.5.",
+  "Get a cited market research brief on agent payments today for under $1 and pay for it.",
 ];
 
 interface AgentMsg {

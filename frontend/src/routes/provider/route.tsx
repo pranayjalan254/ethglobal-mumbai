@@ -15,9 +15,9 @@ export const Route = createFileRoute("/provider")({
   },
   head: () => ({
     meta: [
-      { title: "Provider dashboard — OASIS Protocol" },
+      { title: "Provider - OASIS Protocol" },
       { name: "description", content: "Manage services, availability and bookings on OASIS Protocol." },
-      { property: "og:title", content: "Provider dashboard — OASIS Protocol" },
+      { property: "og:title", content: "Provider - OASIS Protocol" },
       { property: "og:description", content: "Manage services, availability and bookings." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
