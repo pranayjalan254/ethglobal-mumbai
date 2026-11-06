@@ -15,9 +15,13 @@ function MyServices() {
   const { walletAddress } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const q = useQuery({ queryKey: ["my-services"], queryFn: () => listMyServices(walletAddress!) });
+  const q = useQuery({
+    queryKey: ["my-services", walletAddress],
+    queryFn: () => listMyServices(walletAddress!),
+    enabled: Boolean(walletAddress),
+  });
   const [publishing, setPublishing] = useState<Service | null>(null);
-  const refresh = () => qc.invalidateQueries({ queryKey: ["my-services"] });
+  const refresh = () => qc.invalidateQueries({ queryKey: ["my-services", walletAddress] });
 
   const act = (label: string, s: Service) => (
     <button

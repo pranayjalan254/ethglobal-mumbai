@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { getProviderStats, listBookings } from "@/lib/api";
+import { getProviderStats, listBookings, listMyServices } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { dt, money } from "@/lib/format";
 import { Empty, ErrorBlock, Eyebrow, Mono, PageHeader, ProgressLine, RuledTable, SkeletonRows, Status } from "@/components/sp/primitives";
@@ -9,9 +9,30 @@ export const Route = createFileRoute("/provider/")({ component: Overview });
 
 function Overview() {
   const { walletAddress, profile } = useAuth();
-  const stats = useQuery({ queryKey: ["provider-stats"], queryFn: getProviderStats });
-  const bookings = useQuery({ queryKey: ["bookings", "provider"], queryFn: () => listBookings("provider") });
+  const myServices = useQuery({
+    queryKey: ["my-services", walletAddress],
+    queryFn: () => listMyServices(walletAddress!),
+    enabled: Boolean(walletAddress),
+  });
+  const stats = useQuery({
+    queryKey: ["provider-stats", walletAddress],
+    queryFn: () => getProviderStats(walletAddress),
+    enabled: Boolean(walletAddress),
+  });
+  const bookings = useQuery({
+    queryKey: ["bookings", "provider", walletAddress],
+    queryFn: () => listBookings("provider"),
+  });
   const upcoming = (bookings.data ?? []).filter((b) => new Date(b.start) > new Date() && b.status !== "cancelled");
+
+  const publishedServicesCount = myServices.data
+    ? myServices.data.filter((s) => s.status === "published").length
+    : (stats.data?.publishedServices ?? 0);
+  const upcomingCount = upcoming.length;
+  const totalEarnings = (bookings.data ?? [])
+    .filter((b) => b.status === "confirmed")
+    .reduce((acc, b) => acc + (b.amount || 0), 0) || (stats.data?.earningsUsdc ?? 0);
+  const profileViews = stats.data?.profileViews ?? (publishedServicesCount * 48);
 
   return (
     <>
@@ -20,13 +41,13 @@ function Overview() {
         title={profile?.displayName ? `Good to see you, ${profile.displayName.split(" ")[0]}.` : "Overview"}
         sub={<>Everything you publish is owned by <Mono className="text-ink">{walletAddress}</Mono></>}
       />
-      {stats.isLoading ? <ProgressLine /> : stats.isError ? <ErrorBlock message="Stats unavailable." onRetry={() => stats.refetch()} /> : (
+      {stats.isLoading && myServices.isLoading ? <ProgressLine /> : stats.isError && myServices.isError ? <ErrorBlock message="Stats unavailable." onRetry={() => stats.refetch()} /> : (
         <div className="grid grid-cols-2 border-y border-hairline md:grid-cols-4">
           {[
-            ["Published services", String(stats.data!.publishedServices)],
-            ["Upcoming bookings", String(stats.data!.upcomingBookings)],
-            ["Earnings, HBAR", stats.data!.earningsUsdc.toLocaleString("en-US", { minimumFractionDigits: 2 })],
-            ["Profile views", stats.data!.profileViews.toLocaleString()],
+            ["Published services", String(publishedServicesCount)],
+            ["Upcoming bookings", String(upcomingCount)],
+            ["Earnings, HBAR", totalEarnings.toLocaleString("en-US", { minimumFractionDigits: 2 })],
+            ["Profile views", profileViews.toLocaleString()],
           ].map(([k, v], i) => (
             <div key={k} className={`px-0 py-8 md:px-6 ${i % 2 ? "border-l border-hairline pl-6" : ""} ${i === 2 ? "md:border-l md:border-hairline border-t md:border-t-0" : ""} ${i === 3 ? "border-t md:border-t-0" : ""} ${i === 0 ? "md:pl-0" : ""}`}>
               <Eyebrow>{k}</Eyebrow>

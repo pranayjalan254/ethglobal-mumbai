@@ -423,6 +423,25 @@ export async function queryArkivServices(
 }
 
 /**
+ * Query all services owned by a specific provider wallet directly from Arkiv Rabdi testnet.
+ */
+export async function queryArkivMyServices(ownerWallet: string): Promise<ArkivServiceRecord[]> {
+  if (!ownerWallet || !ownerWallet.startsWith("0x")) return [];
+  try {
+    const client = getArkivPublicClient();
+    const query = client
+      .select()
+      .from(ServicesSchema)
+      .where(eq("providerWallet", addr(ownerWallet as `0x${string}`)));
+    const page = await query.limit(50).fetch();
+    return (page.entities || []).map(mapRowToRecord);
+  } catch (err) {
+    console.warn("[OASIS Protocol] queryArkivMyServices notice:", err);
+    return [];
+  }
+}
+
+/**
  * Retrieve a single service entity from Arkiv database by its entity key.
  */
 export async function getArkivService(entityKey: string): Promise<ArkivServiceRecord | null> {

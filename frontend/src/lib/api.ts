@@ -8,6 +8,7 @@
 
 import {
   queryArkivServices,
+  queryArkivMyServices,
   getArkivService,
   type ArkivServiceRecord,
 } from "./arkiv";
@@ -361,9 +362,40 @@ export async function getService(id: string): Promise<Service> {
   }
 }
 
-/** GET /api/services?owner={wallet} */
+/** GET services owned by provider wallet directly from Arkiv Rabdi testnet with FastAPI fallback */
 export async function listMyServices(owner: string): Promise<Service[]> {
-  return http<Service[]>(`/api/services?owner=${encodeURIComponent(owner)}`);
+  if (!owner) return [];
+  const services: Service[] = [];
+  const seenKeys = new Set<string>();
+
+  // 1. Direct typed query to Arkiv Rabdi testnet open database
+  try {
+    const arkivRecords = await queryArkivMyServices(owner);
+    for (const rec of arkivRecords) {
+      const svc = arkivRecordToService(rec);
+      services.push(svc);
+      if (svc.entityKey) seenKeys.add(svc.entityKey.toLowerCase());
+      seenKeys.add(svc.id.toLowerCase());
+    }
+  } catch (err) {
+    console.warn("[OASIS Protocol] listMyServices Arkiv direct query notice:", err);
+  }
+
+  // 2. Query FastAPI backend for any drafts / local services
+  try {
+    const backendServices = await http<Service[]>(`/api/services?owner=${encodeURIComponent(owner)}`);
+    for (const s of backendServices || []) {
+      const key = (s.entityKey || s.id).toLowerCase();
+      if (!seenKeys.has(key)) {
+        services.push(s);
+        seenKeys.add(key);
+      }
+    }
+  } catch (err) {
+    console.warn("[OASIS Protocol] /api/services?owner error:", err);
+  }
+
+  return services;
 }
 
 export type ServiceInput = Pick<

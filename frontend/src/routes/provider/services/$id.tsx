@@ -14,7 +14,11 @@ function EditService() {
   const { walletAddress } = useAuth();
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
-  const q = useQuery({ queryKey: ["my-services"], queryFn: () => listMyServices(walletAddress!) });
+  const q = useQuery({
+    queryKey: ["my-services", walletAddress],
+    queryFn: () => listMyServices(walletAddress!),
+    enabled: Boolean(walletAddress),
+  });
   const svc = q.data?.find((s) => s.id === id);
   return (
     <>

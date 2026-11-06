@@ -113,10 +113,31 @@ class ServiceStore:
     def list_my_services(self, owner_wallet: str) -> list[dict[str, Any]]:
         """Retrieve services owned by a specific provider wallet."""
         w_lower = (owner_wallet or "").lower().strip()
-        return [
+        if not w_lower:
+            return []
+
+        local_results = [
             s for s in self._services.values()
             if s["provider"]["wallet"].lower() == w_lower
         ]
+
+        # Query Arkiv Rabdi testnet for live services published by this wallet
+        try:
+            from agent.arkiv_client import arkiv_client
+            # In Arkiv query syntax, addr takes unquoted 0x address: addr(0x123...)
+            query = f"arkiv.schema = str('slotpay.services.v1') AND providerWallet = addr({w_lower})"
+            arkiv_services = arkiv_client._call_arkiv_rpc(query) or []
+            existing_keys = {str(s.get("entityKey") or s.get("id")).lower() for s in local_results}
+            for svc in arkiv_services:
+                key = str(svc.get("entityKey") or svc.get("id")).lower()
+                if key and key not in existing_keys:
+                    self._services[svc["id"]] = svc
+                    local_results.append(svc)
+                    existing_keys.add(key)
+        except Exception as e:
+            logger.warning("Error fetching owner services from Arkiv: %s", e)
+
+        return local_results
 
     def create_service(self, owner: str, data: ServiceInput) -> dict[str, Any]:
         """Create a new service listing (initially draft)."""
