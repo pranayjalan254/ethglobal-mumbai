@@ -21,7 +21,7 @@ OASIS Protocol targets two intersecting high-growth markets:
 ## 3. Can Users Try It Today?
 
 **Yes, right now on live testnets**:
-- **Web App**: Hosted locally at `http://localhost:8080` (or deployed staging URL).
+- **Web App**: Hosted locally at `https://ethglobal-mumbai.vercel.app` 
 - **Live Arkiv Rabdi Testnet**: All service listings, provider profiles, and slot states are live on Arkiv RPC `https://rpc.rabdi.db-chain.testnet.arkiv.network` (Chain ID `7794095`).
 - **Live Swarm Storage**: All credentials are previewable via decentralized gateway `https://api.gateway.ethswarm.org/bzz/<hash>`.
 - **Live Hedera Micropayments**: Settles in real HBAR and testnet USDC with explorer links generated on HashScan.
@@ -34,5 +34,5 @@ We will actively continue developing OASIS beyond ETHGlobal Mumbai:
 1. **Mainnet Deployments**: Deploy OASIS on Arkiv Mainnet and Hedera Mainnet.
 2. **Standardized Agent Negotiation Protocols**: Integrate ACP (Agent Communication Protocol) and Google/Anthropic MCP tools into the provider discovery layer.
 3. **Reputation & Slashing**: Introduce staking and on-chain peer review scores stored on Arkiv with weighted expiration.
-4. **Calendar Sync Integrations**: Bi-directional synchronization between Google Calendar / Cal.com and Arkiv availability bitmasks.
+4. **Calendar Sync Integrations**: Bi-directional synchronization between Google Calendar / Calendly.com and Arkiv availability bitmasks.
 
