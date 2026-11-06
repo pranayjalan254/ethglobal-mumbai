@@ -11,6 +11,9 @@ importers:
       '@arkiv-network/sdk':
         specifier: ^1.0.1
         version: 1.0.1(typescript@5.9.3)(viem@2.57.16(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76))
+      '@ethersphere/bee-js':
+        specifier: ^13.2.0
+        version: 13.2.0(bufferutil@4.1.0)(utf-8-validate@5.0.10)
       '@hiero-ledger/sdk':
         specifier: ^2.90.1
         version: 2.90.1(bufferutil@4.1.0)(utf-8-validate@5.0.10)
@@ -185,7 +188,7 @@ importers:
         version: 9.39.5
       '@lovable.dev/vite-tanstack-config':
         specifier: 2.26.5
-        version: 2.26.5(@emnapi/core@2.0.0-beta.2)(@emnapi/runtime@2.0.0-beta.2)(@tailwindcss/vite@4.3.4(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0)))(@tanstack/react-start@1.168.60(crossws@0.4.17(srvx@0.11.22))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.3.0)(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0)))(@vitejs/plugin-react@5.2.0(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0)))(bufferutil@4.1.0)(nitro@3.0.260603-beta(jiti@2.7.0)(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0)))(utf-8-validate@5.0.10)(vite-tsconfig-paths@6.1.1(typescript@5.9.3)(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0)))(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0))
+        version: 2.26.5(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@tailwindcss/vite@4.3.4(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0)))(@tanstack/react-start@1.168.60(crossws@0.4.17(srvx@0.11.22))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.3.0)(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0)))(@vitejs/plugin-react@5.2.0(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0)))(bufferutil@4.1.0)(nitro@3.0.260603-beta(jiti@2.7.0)(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0)))(utf-8-validate@5.0.10)(vite-tsconfig-paths@6.1.1(typescript@5.9.3)(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0)))(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0))
       '@testing-library/jest-dom':
         specifier: ^6.6.0
         version: 6.10.0(@testing-library/dom@10.4.2)
@@ -503,6 +506,15 @@ packages:
   '@ethereumjs/util@8.1.0':
     resolution: {integrity: sha512-zQ0IqbdX8FZ9aw11vP+dZkKDkS+kgIvQPHnSAXzP9pLu+Rfu3D3XEeLbicvoXJTYnhZiPmsZUxgdzXwNKxRPbA==}
     engines: {node: '>=14'}
+
+  '@ethersphere/bee-js@13.2.0':
+    resolution: {integrity: sha512-GAl6xkAWwPvy2sxUkzWpaF3JULtOvZ3S1U3JwL5S24sYFjPoGbbsqdUz2TVQxoTMLHx1BRmLGbIExtMs9pl6Ag==}
+    engines: {bee: 2.8.3, beeApiVersion: 8.2.0}
+    hasBin: true
+
+  '@ethersphere/core-sdk@0.2.2':
+    resolution: {integrity: sha512-hfnjPlJbo+LKL34iTeUUVPc8mArMPkFhuKInbTqlwpNlpljeODbMNS3G39kDQHaMZi7zanMDGoD5INTjvokgyg==}
+    engines: {node: '>=22'}
 
   '@floating-ui/core@1.8.0':
     resolution: {integrity: sha512-0CIZ5itps/8x7BG8dEIhs53BvCUH2PCoogtakwRTut+Arm58sJooJ0AuZhLw2HJYIR5cMLNPBSS728sPho2khQ==}
@@ -3328,6 +3340,9 @@ packages:
     resolution: {integrity: sha512-ZMANVnAixE6AWWnPzlW2KpUrxhm9woycYvPOo67jWHyFowASTEd9s+QN1EIMsSDtwhIxN4sWE1jotpuDUIgyIw==}
     engines: {node: '>=6.14.2'}
 
+  cafe-utility@34.0.0:
+    resolution: {integrity: sha512-4gxiVyngFbRa1G10+DIDUjk/Qu8OMxgK5bnNXMj4y80Tc+RLdZlk+pE7scgediQS2cxn8L+3XauS8tE62EfsTg==}
+
   call-bind-apply-helpers@1.0.2:
     resolution: {integrity: sha512-Sp1ablJ0ivDkSzjcaJdxEunN5/XvksFJ2sMBFfq6x0ryhQV/2b/KwFe21cMpmHtPOSij8K99/wSfoEuTObmuMQ==}
     engines: {node: '>= 0.4'}
@@ -4238,6 +4253,11 @@ packages:
 
   isexe@2.0.0:
     resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
+
+  isomorphic-ws@5.0.0:
+    resolution: {integrity: sha512-muId7Zzn9ywDsyXgTIafTry2sV3nySZeUDe6YedVd1Hvuuep5AsIlqK+XefWpYTyJG5e503F2xIuT2lcU6rCSw==}
+    peerDependencies:
+      ws: '*'
 
   isows@1.0.6:
     resolution: {integrity: sha512-lPHCayd40oW98/I0uvgaHKWCSvkzY27LjWLbtzOm64yQ+G3Q5npjjbdppU65iZXkK1Zt+kH9pfegli0AYfwYYw==}
@@ -6466,6 +6486,25 @@ snapshots:
       ethereum-cryptography: 2.2.1
       micro-ftch: 0.3.1
 
+  '@ethersphere/bee-js@13.2.0(bufferutil@4.1.0)(utf-8-validate@5.0.10)':
+    dependencies:
+      '@ethersphere/core-sdk': 0.2.2
+      cafe-utility: 34.0.0
+      debug: 4.4.3
+      isomorphic-ws: 5.0.0(ws@8.22.1(bufferutil@4.1.0)(utf-8-validate@5.0.10))
+      semver: 7.8.6
+      ws: 8.22.1(bufferutil@4.1.0)(utf-8-validate@5.0.10)
+      zod: 4.6.7
+    transitivePeerDependencies:
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+
+  '@ethersphere/core-sdk@0.2.2':
+    dependencies:
+      '@noble/curves': 1.9.7
+      '@noble/hashes': 1.8.0
+
   '@floating-ui/core@1.8.0':
     dependencies:
       '@floating-ui/utils': 0.2.12
@@ -6639,10 +6678,10 @@ snapshots:
     dependencies:
       '@lit-labs/ssr-dom-shim': 1.6.0
 
-  '@lovable.dev/vite-tanstack-config@2.26.5(@emnapi/core@2.0.0-beta.2)(@emnapi/runtime@2.0.0-beta.2)(@tailwindcss/vite@4.3.4(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0)))(@tanstack/react-start@1.168.60(crossws@0.4.17(srvx@0.11.22))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.3.0)(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0)))(@vitejs/plugin-react@5.2.0(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0)))(bufferutil@4.1.0)(nitro@3.0.260603-beta(jiti@2.7.0)(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0)))(utf-8-validate@5.0.10)(vite-tsconfig-paths@6.1.1(typescript@5.9.3)(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0)))(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0))':
+  '@lovable.dev/vite-tanstack-config@2.26.5(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@tailwindcss/vite@4.3.4(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0)))(@tanstack/react-start@1.168.60(crossws@0.4.17(srvx@0.11.22))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.3.0)(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0)))(@vitejs/plugin-react@5.2.0(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0)))(bufferutil@4.1.0)(nitro@3.0.260603-beta(jiti@2.7.0)(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0)))(utf-8-validate@5.0.10)(vite-tsconfig-paths@6.1.1(typescript@5.9.3)(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0)))(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0))':
     dependencies:
       '@tailwindcss/vite': 4.3.4(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0))
-      '@tanstack/devtools-vite': 0.8.6(@emnapi/core@2.0.0-beta.2)(@emnapi/runtime@2.0.0-beta.2)(bufferutil@4.1.0)(utf-8-validate@5.0.10)(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0))
+      '@tanstack/devtools-vite': 0.8.6(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(bufferutil@4.1.0)(utf-8-validate@5.0.10)(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0))
       '@tanstack/react-start': 1.168.60(crossws@0.4.17(srvx@0.11.22))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.3.0)(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0))
       '@vitejs/plugin-react': 5.2.0(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0))
       lightningcss: 1.33.0
@@ -6831,7 +6870,7 @@ snapshots:
       '@noble/hashes': 1.8.0
       '@scure/base': 1.2.6
       '@types/debug': 4.1.13
-      debug: 4.3.4
+      debug: 4.4.3
       pony-cause: 2.1.11
       semver: 7.8.6
       uuid: 9.0.1
@@ -6845,7 +6884,7 @@ snapshots:
       '@noble/hashes': 1.8.0
       '@scure/base': 1.2.6
       '@types/debug': 4.1.13
-      debug: 4.3.4
+      debug: 4.4.3
       pony-cause: 2.1.11
       semver: 7.8.6
       uuid: 9.0.1
@@ -6865,13 +6904,6 @@ snapshots:
     dependencies:
       '@emnapi/core': 1.11.1
       '@emnapi/runtime': 1.11.1
-      '@tybys/wasm-util': 0.10.4
-    optional: true
-
-  '@napi-rs/wasm-runtime@1.2.7(@emnapi/core@2.0.0-beta.2)(@emnapi/runtime@2.0.0-beta.2)':
-    dependencies:
-      '@emnapi/core': 2.0.0-beta.2
-      '@emnapi/runtime': 2.0.0-beta.2
       '@tybys/wasm-util': 0.10.4
     optional: true
 
@@ -6992,9 +7024,9 @@ snapshots:
   '@oxc-parser/binding-openharmony-arm64@0.120.0':
     optional: true
 
-  '@oxc-parser/binding-wasm32-wasi@0.120.0(@emnapi/core@2.0.0-beta.2)(@emnapi/runtime@2.0.0-beta.2)':
+  '@oxc-parser/binding-wasm32-wasi@0.120.0(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)':
     dependencies:
-      '@napi-rs/wasm-runtime': 1.2.7(@emnapi/core@2.0.0-beta.2)(@emnapi/runtime@2.0.0-beta.2)
+      '@napi-rs/wasm-runtime': 1.2.7(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)
     transitivePeerDependencies:
       - '@emnapi/core'
       - '@emnapi/runtime'
@@ -9117,14 +9149,14 @@ snapshots:
       tailwindcss: 4.3.4
       vite: 8.1.5(@types/node@22.20.5)(jiti@2.7.0)
 
-  '@tanstack/devtools-bundler-core@0.1.4(@emnapi/core@2.0.0-beta.2)(@emnapi/runtime@2.0.0-beta.2)(bufferutil@4.1.0)(utf-8-validate@5.0.10)':
+  '@tanstack/devtools-bundler-core@0.1.4(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(bufferutil@4.1.0)(utf-8-validate@5.0.10)':
     dependencies:
       '@tanstack/devtools-client': 0.0.8
       '@tanstack/devtools-event-bus': 0.4.3(bufferutil@4.1.0)(utf-8-validate@5.0.10)
       chalk: 5.6.2
       launch-editor: 2.14.2
       magic-string: 0.30.21
-      oxc-parser: 0.120.0(@emnapi/core@2.0.0-beta.2)(@emnapi/runtime@2.0.0-beta.2)
+      oxc-parser: 0.120.0(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)
       picomatch: 4.0.7
     transitivePeerDependencies:
       - '@emnapi/core'
@@ -9145,9 +9177,9 @@ snapshots:
 
   '@tanstack/devtools-event-client@0.5.1': {}
 
-  '@tanstack/devtools-vite@0.8.6(@emnapi/core@2.0.0-beta.2)(@emnapi/runtime@2.0.0-beta.2)(bufferutil@4.1.0)(utf-8-validate@5.0.10)(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0))':
+  '@tanstack/devtools-vite@0.8.6(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(bufferutil@4.1.0)(utf-8-validate@5.0.10)(vite@8.1.5(@types/node@22.20.5)(jiti@2.7.0))':
     dependencies:
-      '@tanstack/devtools-bundler-core': 0.1.4(@emnapi/core@2.0.0-beta.2)(@emnapi/runtime@2.0.0-beta.2)(bufferutil@4.1.0)(utf-8-validate@5.0.10)
+      '@tanstack/devtools-bundler-core': 0.1.4(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(bufferutil@4.1.0)(utf-8-validate@5.0.10)
       '@tanstack/devtools-client': 0.0.8
       '@tanstack/devtools-event-bus': 0.4.3(bufferutil@4.1.0)(utf-8-validate@5.0.10)
       chalk: 5.6.2
@@ -10914,6 +10946,8 @@ snapshots:
     dependencies:
       node-gyp-build: 4.8.4
 
+  cafe-utility@34.0.0: {}
+
   call-bind-apply-helpers@1.0.2:
     dependencies:
       es-errors: 1.3.0
@@ -11714,6 +11748,10 @@ snapshots:
 
   isexe@2.0.0: {}
 
+  isomorphic-ws@5.0.0(ws@8.22.1(bufferutil@4.1.0)(utf-8-validate@5.0.10)):
+    dependencies:
+      ws: 8.22.1(bufferutil@4.1.0)(utf-8-validate@5.0.10)
+
   isows@1.0.6(ws@8.18.0(bufferutil@4.1.0)(utf-8-validate@5.0.10)):
     dependencies:
       ws: 8.18.0(bufferutil@4.1.0)(utf-8-validate@5.0.10)
@@ -12190,7 +12228,7 @@ snapshots:
     transitivePeerDependencies:
       - zod
 
-  oxc-parser@0.120.0(@emnapi/core@2.0.0-beta.2)(@emnapi/runtime@2.0.0-beta.2):
+  oxc-parser@0.120.0(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1):
     dependencies:
       '@oxc-project/types': 0.120.0
     optionalDependencies:
@@ -12210,7 +12248,7 @@ snapshots:
       '@oxc-parser/binding-linux-x64-gnu': 0.120.0
       '@oxc-parser/binding-linux-x64-musl': 0.120.0
       '@oxc-parser/binding-openharmony-arm64': 0.120.0
-      '@oxc-parser/binding-wasm32-wasi': 0.120.0(@emnapi/core@2.0.0-beta.2)(@emnapi/runtime@2.0.0-beta.2)
+      '@oxc-parser/binding-wasm32-wasi': 0.120.0(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)
       '@oxc-parser/binding-win32-arm64-msvc': 0.120.0
       '@oxc-parser/binding-win32-ia32-msvc': 0.120.0
       '@oxc-parser/binding-win32-x64-msvc': 0.120.0

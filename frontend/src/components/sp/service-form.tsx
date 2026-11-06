@@ -17,6 +17,7 @@ export function ServiceForm({ initial, onSubmit, submitting }: { initial?: Servi
     currency: initial?.currency ?? "USDC",
     durationMin: initial?.durationMin ?? 60,
     providerType: initial?.provider.type ?? profile?.providerType ?? "human",
+    swarmRef: initial?.swarmRef ?? (initial?.provider?.documents?.[0]?.swarmRef) ?? "",
   });
   const [skill, setSkill] = useState("");
   const preset = [30, 60, 90].includes(v.durationMin);
@@ -57,6 +58,15 @@ export function ServiceForm({ initial, onSubmit, submitting }: { initial?: Servi
           </div>
         </Field>
         <Field label="Description" htmlFor="d"><textarea id="d" rows={4} required className={inputCls} value={v.description} onChange={(e) => setV({ ...v, description: e.target.value })} /></Field>
+        <Field label="Portfolio & Credentials (Swarm)" hint="Swarm content hash (bzz://...) linking your decentralized portfolio document to this Arkiv entity.">
+          <input
+            id="swarmRef"
+            className={`${inputCls} mono text-xs`}
+            value={v.swarmRef || ""}
+            onChange={(e) => setV({ ...v, swarmRef: e.target.value })}
+            placeholder="bzz://96bfa8a3683f12445e999c104cf2ec700ab2f22b7a957d90d7003ffea3dc10b6"
+          />
+        </Field>
         <div className="grid gap-6 md:grid-cols-2">
           <Field label="Price" htmlFor="p">
             <div className="flex">

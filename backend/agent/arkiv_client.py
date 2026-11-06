@@ -521,7 +521,7 @@ class ArkivClient:
                 "rating": rating,
                 "reviews": 1,
                 "credentials": ["Arkiv Verified Provider"],
-                "documents": [],
+                "documents": documents,
             },
             "price": price,
             "currency": currency,

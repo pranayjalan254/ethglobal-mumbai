@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@arkiv-network/sdk": "^1.0.1",
+    "@ethersphere/bee-js": "^13.2.0",
     "@hiero-ledger/sdk": "^2.90.1",
     "@hookform/resolvers": "^5.2.2",
     "@privy-io/react-auth": "^3.51.1",

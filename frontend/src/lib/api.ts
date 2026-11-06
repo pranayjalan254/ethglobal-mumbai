@@ -9,14 +9,13 @@
 import {
   queryArkivServices,
   getArkivService,
-  getArkivExpiration,
   type ArkivServiceRecord,
-  type ArkivQueryResult,
 } from "./arkiv";
-import { create402Challenge, executeAutonomousHederaPayment, type X402PaymentRequirements } from "./x402-hedera";
 
 export const API_BASE_URL: string =
-  (import.meta.env["VITE_API_BASE_URL"] as string | undefined) ?? "http://localhost:8000";
+  ((import.meta as unknown as { env?: Record<string, string | undefined> }).env?.[
+    "VITE_API_BASE_URL"
+  ] as string | undefined) ?? "http://localhost:8000";
 
 export const EXPLORER_BASE = "https://hashscan.io/testnet/transaction/";
 
@@ -56,6 +55,7 @@ export interface Service {
   expiresAt?: string | undefined;
   nextSlot: string;
   location: "remote";
+  swarmRef?: string | undefined;
 }
 
 export interface Slot {
@@ -183,7 +183,14 @@ export function arkivRecordToService(rec: ArkivServiceRecord): Service {
       rating: rec.rating,
       reviews: 1,
       credentials: ["Arkiv Verified Provider"],
-      documents: [],
+      documents: rec.swarmRef
+        ? [
+            {
+              name: "Portfolio & Verified Credentials",
+              swarmRef: rec.swarmRef,
+            },
+          ]
+        : [],
     },
     status: "published",
     entityKey: rec.entityKey,
@@ -236,7 +243,8 @@ export async function listServices(query: ServiceQuery = {}): Promise<ServicesLi
     if (query.q) params.set("q", query.q);
     if (query.category) params.set("category", query.category);
     if (query.skill) params.set("skill", query.skill);
-    if (query.provider_type && query.provider_type !== "any") params.set("provider_type", query.provider_type);
+    if (query.provider_type && query.provider_type !== "any")
+      params.set("provider_type", query.provider_type);
     if (query.min_price != null) params.set("min_price", String(query.min_price));
     if (query.max_price != null) params.set("max_price", String(query.max_price));
     if (query.duration) params.set("duration", String(query.duration));
@@ -278,40 +286,35 @@ export async function getService(id: string): Promise<Service> {
   try {
     return await http<Service>(`/api/services/${id}`);
   } catch (_err) {
-    await delay(30);
-    const s = services().find((x) => x.id === id) ?? MY_SERVICES?.find((x) => x.id === id);
-    if (!s) {
-      if (id.startsWith("0x")) {
-        return {
-          id,
-          entityKey: id,
-          title: "1-on-1 Consultation",
-          category: "Consultation",
-          skills: ["Consultation", "Advisory", "Code Review"],
-          description: "Open availability published directly to Arkiv Rabdi testnet.",
-          price: 25.0,
-          currency: "USDC",
-          durationMin: 60,
-          provider: {
-            id: `p_${id.slice(2, 10)}`,
-            name: "Verified Provider",
-            type: "human",
-            headline: "Specialist · Published on Arkiv Rabdi",
-            bio: "Verified Provider on SlotPay",
-            wallet: id,
-            rating: 5.0,
-            reviews: 1,
-            credentials: ["Arkiv Verified Provider"],
-            documents: [],
-          },
-          status: "published",
-          nextSlot: new Date().toISOString(),
-          location: "remote",
-        };
-      }
-      throw new Error("Service not found");
+    if (id.startsWith("0x")) {
+      return {
+        id,
+        entityKey: id,
+        title: "1-on-1 Consultation",
+        category: "Consultation",
+        skills: ["Consultation", "Advisory", "Code Review"],
+        description: "Open availability published directly to Arkiv Rabdi testnet.",
+        price: 25.0,
+        currency: "USDC",
+        durationMin: 60,
+        provider: {
+          id: `p_${id.slice(2, 10)}`,
+          name: "Verified Provider",
+          type: "human",
+          headline: "Specialist · Published on Arkiv Rabdi",
+          bio: "Verified Provider on SlotPay",
+          wallet: id,
+          rating: 5.0,
+          reviews: 1,
+          credentials: ["Arkiv Verified Provider"],
+          documents: [],
+        },
+        status: "published",
+        nextSlot: new Date().toISOString(),
+        location: "remote",
+      };
     }
-    return s;
+    throw new Error("Service not found");
   }
 }
 
@@ -320,7 +323,10 @@ export async function listMyServices(owner: string): Promise<Service[]> {
   return http<Service[]>(`/api/services?owner=${encodeURIComponent(owner)}`);
 }
 
-export type ServiceInput = Pick<Service, "title" | "category" | "skills" | "description" | "price" | "currency" | "durationMin"> & { providerType: ProviderType };
+export type ServiceInput = Pick<
+  Service,
+  "title" | "category" | "skills" | "description" | "price" | "currency" | "durationMin"
+> & { providerType: ProviderType; swarmRef?: string | undefined };
 
 /** POST /api/services */
 export async function createService(owner: string, input: ServiceInput): Promise<Service> {
@@ -331,7 +337,11 @@ export async function createService(owner: string, input: ServiceInput): Promise
 }
 
 /** PUT /api/services/{id} */
-export async function updateService(owner: string, id: string, input: ServiceInput): Promise<Service> {
+export async function updateService(
+  owner: string,
+  id: string,
+  input: ServiceInput,
+): Promise<Service> {
   return http<Service>(`/api/services/${id}?owner=${encodeURIComponent(owner)}`, {
     method: "PUT",
     body: JSON.stringify({ ...input, owner }),
@@ -339,11 +349,19 @@ export async function updateService(owner: string, id: string, input: ServiceInp
 }
 
 /** POST /api/services/{id}/publish  -> { entity_key, tx_ref, expires_at } */
-export async function publishService(id: string, days: number, entity_key?: string, tx_ref?: string) {
-  return http<{ entity_key: string; tx_ref: string; expires_at: string }>(`/api/services/${id}/publish`, {
-    method: "POST",
-    body: JSON.stringify({ days, entity_key, tx_ref }),
-  });
+export async function publishService(
+  id: string,
+  days: number,
+  entity_key?: string,
+  tx_ref?: string,
+) {
+  return http<{ entity_key: string; tx_ref: string; expires_at: string }>(
+    `/api/services/${id}/publish`,
+    {
+      method: "POST",
+      body: JSON.stringify({ days, entity_key, tx_ref }),
+    },
+  );
 }
 
 /** POST /api/services/{id}/renew */
@@ -385,7 +403,7 @@ export async function publishAvailability(
   cells: string[],
   owner?: string,
   entity_key?: string,
-  tx_ref?: string
+  tx_ref?: string,
 ) {
   return http<{ entity_key: string; count: number }>("/api/availability", {
     method: "POST",
@@ -407,7 +425,10 @@ export async function claimSlot(slotId: string) {
 }
 
 /** POST /api/bookings -> 402 payment requirements */
-export async function createBooking(service: Service, slotId: string): Promise<{ booking_id: string; payment: PaymentRequirements }> {
+export async function createBooking(
+  service: Service,
+  slotId: string,
+): Promise<{ booking_id: string; payment: PaymentRequirements }> {
   return http<{ booking_id: string; payment: PaymentRequirements }>("/api/bookings", {
     method: "POST",
     body: JSON.stringify({
@@ -419,7 +440,11 @@ export async function createBooking(service: Service, slotId: string): Promise<{
 }
 
 /** POST /api/bookings/confirm  body: { payment_header } -> Receipt */
-export async function confirmBooking(service: Service, slotStart: string, txIdOverride?: string): Promise<Receipt> {
+export async function confirmBooking(
+  service: Service,
+  slotStart: string,
+  txIdOverride?: string,
+): Promise<Receipt> {
   return http<Receipt>("/api/bookings/confirm", {
     method: "POST",
     body: JSON.stringify({
@@ -450,6 +475,21 @@ export async function uploadToSwarm(file: File): Promise<{ reference: string }> 
   return res.json();
 }
 
+/** POST /api/services/link-swarm -> Automatically attaches Swarm document to active service */
+export async function autoLinkSwarmDocument(owner: string, filename: string, swarmRef: string) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/services/link-swarm`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ owner, filename, swarm_ref: swarmRef }),
+    });
+    if (res.ok) return await res.json();
+  } catch (err) {
+    console.warn("[SlotPay] Auto-link notice:", err);
+  }
+  return null;
+}
+
 /** GET /api/provider/stats */
 export async function getProviderStats(ownerOrContext?: string | unknown): Promise<ProviderStats> {
   const owner = typeof ownerOrContext === "string" ? ownerOrContext : undefined;
@@ -461,10 +501,14 @@ export async function getProviderStats(ownerOrContext?: string | unknown): Promi
 export async function getWalletTransactions(walletOrContext?: string | unknown) {
   const wallet = typeof walletOrContext === "string" ? walletOrContext : undefined;
   const qs = wallet ? `?wallet=${encodeURIComponent(wallet)}` : "";
-  return http<Array<{ id: string; label: string; amount: number; currency: Currency; at: string }>>(`/api/wallet/transactions${qs}`);
+  return http<Array<{ id: string; label: string; amount: number; currency: Currency; at: string }>>(
+    `/api/wallet/transactions${qs}`,
+  );
 }
 
-export async function getWalletBalance(walletOrContext?: string | unknown): Promise<{ hbar: number; usdc: number }> {
+export async function getWalletBalance(
+  walletOrContext?: string | unknown,
+): Promise<{ hbar: number; usdc: number }> {
   const wallet = typeof walletOrContext === "string" ? walletOrContext : undefined;
   const qs = wallet ? `?wallet=${encodeURIComponent(wallet)}` : "";
   return http<{ hbar: number; usdc: number }>(`/api/wallet/balance${qs}`);
@@ -507,7 +551,7 @@ export async function streamAgentChat(
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "accept": "text/event-stream",
+      accept: "text/event-stream",
     },
     body: JSON.stringify({
       message,
@@ -548,9 +592,14 @@ export async function streamAgentChat(
         const event: AgentEvent = JSON.parse(dataStr);
         if (signal?.cancelled) break;
 
-        const paymentObj = (event.step?.detail && typeof event.step.detail === "object") ? (event.step.detail as Record<string, any>)["payment"] : undefined;
+        const paymentObj =
+          event.step?.detail && typeof event.step.detail === "object"
+            ? ((event.step.detail as Record<string, unknown>)["payment"] as
+                | Record<string, unknown>
+                | undefined)
+            : undefined;
         if (event.type === "approval" && paymentObj) {
-          const amount = Number(paymentObj.amount);
+          const amount = Number(paymentObj["amount"]);
           onEvent(event);
           const approved = await requestApproval(amount);
           if (!approved) {
@@ -575,13 +624,13 @@ export async function streamAgentChat(
           // If pay step phase is signing and real payment callback provided, trigger real on-chain transaction
           if (
             event.step?.id === "pay" &&
-            (event.step.detail as any)?.phase === "signing" &&
+            (event.step.detail as Record<string, unknown> | undefined)?.["phase"] === "signing" &&
             paymentObj &&
             onExecuteRealPayment
           ) {
             onEvent(event);
             try {
-              await onExecuteRealPayment(paymentObj as PaymentRequirements);
+              await onExecuteRealPayment(paymentObj as unknown as PaymentRequirements);
             } catch (payErr) {
               console.warn("Real payment attempt:", payErr);
             }

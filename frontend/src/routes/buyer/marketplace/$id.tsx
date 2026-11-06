@@ -55,7 +55,27 @@ function Detail() {
                 {s.provider.documents.map((d) => (
                   <li key={d.name} className="flex items-center justify-between border-b border-hairline py-2.5">
                     <span>{d.name}</span>
-                    <span className="inline-flex items-center gap-1"><Mono className="text-ink-muted">bzz://{shortHash(d.swarmRef.slice(2), 6)}</Mono><CopyButton value={d.swarmRef} /></span>
+                    <span className="inline-flex items-center gap-2">
+                      <a
+                        href={`/api/swarm/${d.swarmRef.replace(/^0x/, "")}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-accent underline hover:opacity-80 font-mono"
+                        title="View document content"
+                      >
+                        bzz://{shortHash(d.swarmRef.replace(/^0x/, ""), 6)}
+                      </a>
+                      <a
+                        href={`https://api.gateway.ethswarm.org/bzz/${d.swarmRef.replace(/^0x/, "")}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] text-ink-muted underline hover:text-ink"
+                        title="Verify on Swarm Gateway"
+                      >
+                        [gateway]
+                      </a>
+                      <CopyButton value={d.swarmRef} />
+                    </span>
                   </li>
                 ))}
               </ul>

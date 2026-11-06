@@ -28,6 +28,7 @@ export const ServicesSchema = defineSchema("slotpay.services.v1", {
   description: str(),
   nextSlot: str().indexed(),
   rating: dec().indexed(),
+  swarmRef: str(),
 });
 
 // Canonical SlotPay Availability Schema on Arkiv
@@ -97,6 +98,7 @@ export interface ArkivServiceRecord {
   description: string;
   nextSlot: string;
   rating: number;
+  swarmRef?: string | undefined;
   expiresAt?: string | undefined;
   isArkivEntity?: boolean | undefined;
 }
@@ -193,6 +195,7 @@ function mapRowToRecord(row: any): ArkivServiceRecord {
     description: row.description?.value ?? "",
     nextSlot: row.nextSlot?.value ?? new Date().toISOString(),
     rating: Number(row.rating?.value ?? 4.8),
+    swarmRef: row.swarmRef?.value ? String(row.swarmRef.value) : undefined,
     expiresAt: row.$expiresAt ? row.$expiresAt.toString() : undefined,
     isArkivEntity: true,
   };
@@ -530,6 +533,7 @@ export async function publishServiceOnChain(
     durationMin: number;
     description?: string;
     nextSlot?: string;
+    swarmRef?: string;
     provider?: {
       name?: string;
       type?: "human" | "ai";
@@ -561,6 +565,7 @@ export async function publishServiceOnChain(
       description: (service.description || "").slice(0, 120),
       nextSlot: (service.nextSlot || new Date().toISOString()).slice(0, 30),
       rating: dec(Number(pRating).toFixed(1)),
+      swarmRef: (service.swarmRef || "").slice(0, 100),
     },
     { expiration },
   );

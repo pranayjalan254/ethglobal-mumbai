@@ -67,6 +67,13 @@ class ServiceInput(BaseModel):
     durationMin: int = Field(60, alias="durationMin")
     providerType: ProviderType = Field("human", alias="providerType")
     owner: Optional[str] = None
+    swarmRef: Optional[str] = Field(None, alias="swarmRef")
+
+
+class LinkSwarmInput(BaseModel):
+    owner: Optional[str] = None
+    filename: str = "document.pdf"
+    swarm_ref: str
 
 
 class ServicePublishInput(BaseModel):

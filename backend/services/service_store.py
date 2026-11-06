@@ -131,7 +131,12 @@ class ServiceStore:
             "rating": 5.0,
             "reviews": 0,
             "credentials": [],
-            "documents": [],
+            "documents": [
+                {
+                    "name": "Verified Portfolio & Credentials",
+                    "swarmRef": str(data.swarmRef),
+                }
+            ] if data.swarmRef else [],
         }
 
         service_dict = {
@@ -143,6 +148,7 @@ class ServiceStore:
             "price": data.price,
             "currency": data.currency,
             "durationMin": data.durationMin,
+            "swarmRef": data.swarmRef,
             "provider": provider_data,
             "status": "draft",
             "entityKey": None,
@@ -168,6 +174,12 @@ class ServiceStore:
         svc["currency"] = data.currency
         svc["durationMin"] = data.durationMin
         svc["provider"]["type"] = data.providerType
+        if data.swarmRef:
+            svc["swarmRef"] = data.swarmRef
+            svc["provider"]["documents"] = [{
+                "name": "Verified Portfolio & Credentials",
+                "swarmRef": str(data.swarmRef),
+            }]
         return svc
 
     def publish_service(
@@ -220,6 +232,56 @@ class ServiceStore:
         svc["status"] = "draft"
         svc["expiresAt"] = None
         return True
+
+    def link_swarm_document(self, owner: str, filename: str, swarm_ref: str) -> dict[str, Any]:
+        """Automatically link an uploaded Swarm reference to the provider's active Arkiv service."""
+        owner_lower = owner.lower().strip() if owner else ""
+        clean_ref = swarm_ref.replace("bzz://", "").replace("0x", "").strip()
+
+        # Find existing service for this owner
+        target_service = None
+        for svc in self._services.values():
+            if owner_lower and svc.get("provider", {}).get("wallet", "").lower() == owner_lower:
+                target_service = svc
+                break
+
+        # Fallback to any first service if owner is unassigned or demo
+        if not target_service and self._services:
+            target_service = next(iter(self._services.values()))
+
+        # If still no service, create one
+        if not target_service:
+            from schemas.api import ServiceInput
+            target_service = self.create_service(
+                owner=owner or "0x5d8d26cbea05632abf3a3cf87e1f3806ad34de77",
+                data=ServiceInput(
+                    title="Consultation & Advisory Session",
+                    category="Engineering",
+                    skills=["Code Review", "Architecture", "Consultation"],
+                    description="Verified provider with portfolio documents on Swarm.",
+                    price=25.0,
+                    currency="USDC",
+                    durationMin=60,
+                    providerType="human",
+                    swarmRef=clean_ref,
+                ),
+            )
+
+        target_service["swarmRef"] = clean_ref
+        docs = target_service.get("provider", {}).setdefault("documents", [])
+        if not any(d.get("swarmRef") == clean_ref for d in docs):
+            docs.append({
+                "name": filename or "Verified Portfolio & Credentials",
+                "swarmRef": clean_ref,
+            })
+
+        return {
+            "success": True,
+            "service_id": target_service.get("id"),
+            "service_title": target_service.get("title"),
+            "swarm_ref": clean_ref,
+            "documents_count": len(docs),
+        }
 
 
 # Singleton instance

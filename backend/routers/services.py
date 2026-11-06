@@ -220,3 +220,12 @@ def get_service_slots(service_id: str, date: Optional[str] = Query(None)) -> lis
     """Retrieve available time slots for a specific service."""
     return availability_service.get_service_slots(service_id, date)
 
+
+@router.post("/link-swarm")
+def link_swarm_document(body: dict) -> dict:
+    """Automatically link uploaded Swarm document to the provider's active Arkiv service."""
+    owner = body.get("owner") or ""
+    filename = body.get("filename") or "Document"
+    swarm_ref = body.get("swarm_ref") or body.get("swarmRef") or ""
+    return service_store.link_swarm_document(owner, filename, swarm_ref)
+
