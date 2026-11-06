@@ -463,6 +463,21 @@ def discover_arkiv(state: QueryParserState) -> dict[str, Any]:
     services = arkiv_client.query_services(arkiv_filter)
     logger.info("Arkiv discovery returned %d services", len(services))
 
+    # Graceful fallback: If strict filter returns 0 services, try category-level search within budget
+    if not services and arkiv_filter.skills:
+        from schemas.arkiv import ArkivQueryFilter
+        relaxed_filter = ArkivQueryFilter(
+            category=arkiv_filter.category,
+            provider_type=arkiv_filter.provider_type,
+            max_price=arkiv_filter.max_price,
+            min_price=arkiv_filter.min_price,
+            duration_min=arkiv_filter.duration_min,
+        )
+        relaxed_services = arkiv_client.query_services(relaxed_filter)
+        if relaxed_services:
+            logger.info("Relaxed Arkiv discovery returned %d services", len(relaxed_services))
+            services = relaxed_services
+
     return {
         "discovered_services": services,
         "steps_executed": steps,

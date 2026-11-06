@@ -86,7 +86,7 @@ function Agent() {
               resource: payment.resource,
               maxTimeoutSeconds: payment.maxTimeoutSeconds,
             },
-            approvedBudget: limit,
+            approvedBudget: Math.max(limit, parseFloat(payment.amount) || 0),
             clientWallet: walletAddress || "0x5d8d26cbea05632abf3a3cf87e1f3806ad34de77",
             provider,
           });

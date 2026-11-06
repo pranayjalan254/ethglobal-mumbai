@@ -109,18 +109,6 @@ function Marketplace() {
         <button className="link-u text-[13px] text-accent" onClick={() => setF(DEFAULT)}>
           Reset filters
         </button>
-
-        {arkivExpression && (
-          <div className="rounded border border-hairline bg-ink/5 p-3 text-xs">
-            <div className="flex items-center justify-between text-[11px] font-medium text-ink-muted">
-              <span>Arkiv Query Predicate</span>
-              <Database className="h-3 w-3 text-accent" />
-            </div>
-            <p className="mt-1.5 break-all font-mono text-[10px] leading-relaxed text-ink-muted">
-              {arkivExpression}
-            </p>
-          </div>
-        )}
       </aside>
 
       <section className="px-4 py-8 md:px-8">
@@ -139,9 +127,10 @@ function Marketplace() {
                 <button
                   type="button"
                   onClick={() => setShowQueryDetails(!showQueryDetails)}
-                  className="link-u text-[11px] text-accent"
+                  className="inline-flex items-center gap-1 text-[11px] text-accent hover:underline"
                 >
-                  {showQueryDetails ? "Hide query" : "View Arkiv query"}
+                  <Database className="h-3 w-3" />
+                  <span>{showQueryDetails ? "Hide On-Chain Query" : "Inspect On-Chain Query"}</span>
                 </button>
               )}
             </div>
@@ -181,15 +170,15 @@ function Marketplace() {
         </div>
 
         {showQueryDetails && arkivExpression && (
-          <div className="mb-6 rounded border border-accent/20 bg-accent/5 p-4 text-xs">
+          <div className="mb-6 rounded-lg border border-accent/20 bg-accent/5 p-4 text-xs">
             <div className="flex items-center justify-between font-mono text-[11px] text-accent">
-              <span className="flex items-center gap-1.5">
+              <span className="flex items-center gap-1.5 font-medium">
                 <Database className="h-3.5 w-3.5" />
-                <span>SELECT * FROM slotpay.services.v1</span>
+                <span>Arkiv On-Chain Query · OASIS Protocol</span>
               </span>
-              <span>chain 7794095 (Rabdi)</span>
+              <span className="rounded bg-accent/10 px-2 py-0.5 text-[10px] text-accent">Rabdi Testnet (Chain ID 7794095)</span>
             </div>
-            <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded bg-background p-3 font-mono text-[11px] text-ink">
+            <pre className="mt-2.5 overflow-x-auto whitespace-pre-wrap rounded border border-hairline bg-background/90 p-3 font-mono text-[11px] leading-relaxed text-ink">
               {arkivExpression}
             </pre>
           </div>

@@ -40,7 +40,11 @@ def build_arkiv_query_string(f: ArkivQueryFilter) -> str:
     clauses = [f"arkiv.schema = str('{ARKIV_SCHEMA_NAME}')"]
 
     if f.category and f.category.strip():
-        clauses.append(f"category = str('{f.category.strip()}')")
+        cat = f.category.strip()
+        if cat.lower() == "design":
+            clauses.append("(category = str('Design') OR category = str('Engineering'))")
+        else:
+            clauses.append(f"category = str('{cat}')")
 
     if f.provider_type and f.provider_type != ProviderType.ANY:
         clauses.append(f"providerType = str('{f.provider_type.value}')")
@@ -362,37 +366,48 @@ class ArkivClient:
 
         active_reservations = self.query_reservations()
 
-        rpc_results = self._call_arkiv_rpc(query_str)
-        if rpc_results:
-            logger.info("Arkiv RPC returned %d live entities from Rabdi testnet.", len(rpc_results))
-            matches = [s for s in rpc_results if self._matches_filter(s, query_filter)]
-            return [s for s in matches if self.is_slot_available(str(s.get("id", "")), active_reservations)]
+        rpc_results = self._call_arkiv_rpc(query_str) or []
+        services = [s for s in rpc_results if self._matches_filter(s, query_filter)]
 
-        # If no service listings exist, discover open providers from live Arkiv availability entities on Rabdi testnet
-        avail_results = self._call_arkiv_rpc(f"arkiv.schema = str('{ARKIV_AVAILABILITY_SCHEMA}')")
-        if avail_results:
-            logger.info("Arkiv RPC discovered %d live availability entities on Rabdi.", len(avail_results))
-            def sort_key(item: dict[str, Any]) -> int:
-                try:
-                    return int(item.get("expiresAt") or 0)
-                except Exception:
-                    return 0
+        # Also discover open provider schedules from published Arkiv availability entities on Rabdi.
+        # Provider availability schedules represent 1-on-1 Engineering & Advisory consultations.
+        avail_category = "Engineering"
+        matches_category = not query_filter.category or query_filter.category.strip().lower() == avail_category.lower()
+        matches_type = not query_filter.provider_type or query_filter.provider_type in (ProviderType.ANY, ProviderType.HUMAN)
+        default_price = 0.5
+        matches_price = (
+            (query_filter.min_price is None or default_price >= query_filter.min_price) and
+            (query_filter.max_price is None or default_price <= query_filter.max_price)
+        )
+        matches_dur = (
+            query_filter.duration_min is None or
+            query_filter.duration_min == 0 or
+            abs(60 - query_filter.duration_min) <= 30
+        )
 
-            avail_results_sorted = sorted(avail_results, key=sort_key, reverse=True)
-            seen_wallets = set()
-            deduped = []
-            for item in avail_results_sorted:
-                wallet = str(item.get("provider_wallet") or item.get("provider", {}).get("wallet", "")).lower()
-                if wallet and wallet in seen_wallets:
-                    continue
-                if wallet:
-                    seen_wallets.add(wallet)
-                deduped.append(item)
+        seen_avail_wallets = set()
+        if matches_category and matches_type and matches_price and matches_dur:
+            avail_results = self._call_arkiv_rpc(f"arkiv.schema = str('{ARKIV_AVAILABILITY_SCHEMA}')")
+            if avail_results:
+                def sort_key(item: dict[str, Any]) -> int:
+                    try:
+                        return int(item.get("expiresAt") or 0)
+                    except Exception:
+                        return 0
 
-            matches = [s for s in deduped if self._matches_filter(s, query_filter)]
-            return [s for s in matches if self.is_slot_available(str(s.get("id", "")), active_reservations)]
+                avail_results_sorted = sorted(avail_results, key=sort_key, reverse=True)
+                for item in avail_results_sorted:
+                    wallet = str(item.get("provider_wallet") or item.get("provider", {}).get("wallet", "")).lower()
+                    if wallet and wallet in seen_avail_wallets:
+                        continue
+                    if wallet:
+                        seen_avail_wallets.add(wallet)
+                    item["category"] = avail_category
+                    if self._matches_filter(item, query_filter):
+                        services.append(item)
 
-        return []
+        available_services = [s for s in services if self.is_slot_available(str(s.get("id", "")), active_reservations)]
+        return available_services
 
     def get_service_by_id_or_key(self, service_id: str) -> Optional[dict[str, Any]]:
         """Retrieve a service entity by ID or Arkiv entity key."""
@@ -422,6 +437,18 @@ class ArkivClient:
         if f.min_price is not None and price < f.min_price:
             return False
 
+        if f.category:
+            svc_cat = (svc.get("category") or "").strip().lower()
+            if f.category.strip().lower() != svc_cat:
+                return False
+
+        if f.skills:
+            svc_skills = [str(s).strip().lower() for s in svc.get("skills", [])]
+            for sk in f.skills:
+                sk_clean = sk.strip().lower()
+                if not any(sk_clean in s for s in svc_skills):
+                    return False
+
         p_type = svc.get("provider_type") or svc.get("provider", {}).get("type")
         if f.provider_type and f.provider_type != ProviderType.ANY:
             if p_type != f.provider_type.value:
@@ -435,6 +462,15 @@ class ArkivClient:
         )
         if f.provider_name:
             if f.provider_name.lower() not in p_name.lower():
+                return False
+
+        if f.q:
+            q_clean = f.q.strip().lower()
+            title = (svc.get("title") or "").lower()
+            desc = (svc.get("description") or "").lower()
+            skills_joined = " ".join(str(s) for s in svc.get("skills", [])).lower()
+            combined = f"{title} {desc} {p_name} {skills_joined}"
+            if q_clean not in combined:
                 return False
 
         dur = svc.get("duration_min") or svc.get("durationMin")
@@ -492,7 +528,7 @@ class ArkivClient:
         elif isinstance(raw_skills, str) and raw_skills:
             skills_list = [s.strip() for s in raw_skills.split(",") if s.strip()]
         else:
-            skills_list = ["Consultation", "Advisory", "Code Review"]
+            skills_list = ["Python", "Consultation", "Advisory", "Code Review", "Fullstack"]
 
         provider_name = attrs.get("providerName") or attrs.get("provider_name") or "Arkiv Provider"
         provider_type = attrs.get("providerType") or attrs.get("provider_type") or "human"
@@ -518,6 +554,8 @@ class ArkivClient:
             documents = [{"name": "Portfolio Document", "swarmRef": str(attrs.get("swarmRef"))}]
 
         if schema_name == "slotpay.availability.v1" or "dayHour" in attrs:
+            if raw_price is None:
+                price = 0.5
             p_name = provider_name
             dur = duration
             headline = "Verified Provider · Published on Arkiv Rabdi"
@@ -532,12 +570,17 @@ class ArkivClient:
             title = attrs.get("title") or f"1-on-1 Consultation with {p_name}"
             desc = attrs.get("description") or bio
 
+        category = attrs.get("category") or "Engineering"
+        comb = f"{title} {' '.join(skills_list)}".lower()
+        if category == "Engineering" and any(k in comb for k in ("designer", "design", "figma", "ui/ux")):
+            category = "Design"
+
         return {
             "id": key or "svc_arkiv",
             "entityKey": key,
             "entity_key": key,
             "title": title,
-            "category": attrs.get("category") or "Engineering",
+            "category": category,
             "skills": skills_list,
             "provider_type": provider_type,
             "provider_name": p_name,

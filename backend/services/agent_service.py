@@ -155,7 +155,7 @@ class AgentService:
                 "id": s.get("id"),
                 "name": s.get("provider_name") or s.get("provider", {}).get("name", "Provider"),
                 "type": s.get("provider_type") or s.get("provider", {}).get("type", "human"),
-                "price": float(s.get("price", 20.0)),
+                "price": float(s.get("price") or 0.5),
                 "rating": float(s.get("rating") or s.get("provider", {}).get("rating", 4.8)),
                 "nextSlot": s.get("next_slot") or s.get("nextSlot", "2026-11-06T10:00:00Z"),
             })

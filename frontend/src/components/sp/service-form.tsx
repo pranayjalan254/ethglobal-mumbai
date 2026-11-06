@@ -23,6 +23,27 @@ export function ServiceForm({ initial, onSubmit, submitting }: { initial?: Servi
   const preset = [30, 60, 90].includes(v.durationMin);
   const [customDur, setCustomDur] = useState(!preset);
 
+  const [categoryManual, setCategoryManual] = useState(Boolean(initial?.category));
+
+  const handleTitleChange = (newTitle: string) => {
+    let newCategory = v.category;
+    if (!categoryManual) {
+      const lower = newTitle.toLowerCase();
+      if (lower.includes("design") || lower.includes("ui") || lower.includes("ux") || lower.includes("figma")) {
+        newCategory = "Design";
+      } else if (lower.includes("security") || lower.includes("audit") || lower.includes("pentest")) {
+        newCategory = "Security";
+      } else if (lower.includes("legal") || lower.includes("compliance")) {
+        newCategory = "Legal";
+      } else if (lower.includes("research") || lower.includes("analysis")) {
+        newCategory = "Research";
+      } else if (lower.includes("finance") || lower.includes("tax") || lower.includes("accounting") || lower.includes("tokenomics")) {
+        newCategory = "Finance";
+      }
+    }
+    setV({ ...v, title: newTitle, category: newCategory });
+  };
+
   const addSkill = () => {
     const s = skill.trim();
     if (s && !v.skills.includes(s)) setV({ ...v, skills: [...v.skills, s] });
@@ -35,10 +56,18 @@ export function ServiceForm({ initial, onSubmit, submitting }: { initial?: Servi
       onSubmit={(e) => { e.preventDefault(); onSubmit(v); }}
     >
       <div className="col-span-12 space-y-6 lg:col-span-7">
-        <Field label="Title" htmlFor="t"><input id="t" required className={inputCls} value={v.title} onChange={(e) => setV({ ...v, title: e.target.value })} placeholder="One-hour Python consultation" /></Field>
+        <Field label="Title" htmlFor="t"><input id="t" required className={inputCls} value={v.title} onChange={(e) => handleTitleChange(e.target.value)} placeholder="One-hour Python consultation" /></Field>
         <div className="grid gap-6 md:grid-cols-2">
           <Field label="Category" htmlFor="c">
-            <select id="c" className={inputCls} value={v.category} onChange={(e) => setV({ ...v, category: e.target.value })}>
+            <select
+              id="c"
+              className={inputCls}
+              value={v.category}
+              onChange={(e) => {
+                setCategoryManual(true);
+                setV({ ...v, category: e.target.value });
+              }}
+            >
               {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
             </select>
           </Field>

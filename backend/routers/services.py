@@ -87,10 +87,10 @@ def get_service(service_id: str) -> dict:
                 svc = {
                     "id": service_id,
                     "title": "1-on-1 Consultation",
-                    "category": "Consultation",
-                    "skills": ["Consultation", "Advisory", "Code Review"],
+                    "category": "Engineering",
+                    "skills": ["Python", "Consultation", "Advisory", "Code Review", "Fullstack"],
                     "description": f"Open availability published directly to Arkiv Rabdi testnet. Hourly blocks: {','.join(cells[:6]) if cells else 'Flexible'}",
-                    "price": 25.0,
+                    "price": 0.5,
                     "currency": "HBAR",
                     "durationMin": 60,
                     "provider": {

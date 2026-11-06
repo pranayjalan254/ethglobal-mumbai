@@ -177,15 +177,25 @@ export interface ArkivQueryResult {
 }
 
 function mapRowToRecord(row: any): ArkivServiceRecord {
+  let category = row.category?.value ?? "Engineering";
+  const title = row.title?.value ?? "Consultation";
+  const skills = (row.skills?.value ?? "")
+    .split(",")
+    .map((s: string) => s.trim())
+    .filter(Boolean);
+
+  // Normalize category if service has explicit design keywords but was saved with default Engineering
+  const combinedText = `${title} ${skills.join(" ")}`.toLowerCase();
+  if (category === "Engineering" && (combinedText.includes("designer") || combinedText.includes("design") || combinedText.includes("figma") || combinedText.includes("ui/ux"))) {
+    category = "Design";
+  }
+
   return {
     id: row.$key as string,
     entityKey: row.$key as string,
-    title: row.title?.value ?? "Consultation",
-    category: row.category?.value ?? "Engineering",
-    skills: (row.skills?.value ?? "")
-      .split(",")
-      .map((s: string) => s.trim())
-      .filter(Boolean),
+    title,
+    category,
+    skills,
     providerType: (row.providerType?.value ?? "human") as "human" | "ai",
     providerName: row.providerName?.value ?? "Provider",
     providerWallet: row.providerWallet?.value ?? "",
@@ -208,9 +218,14 @@ export function buildArkivQuery(client: ReturnType<typeof getArkivPublicClient>,
   let query = client.select().from(ServicesSchema);
   const conditions = [];
 
-  // Filter 1: Category
+  // Filter 1: Category (broaden to include legacy-default Engineering entities when filtering Design)
   if (filter.category && filter.category.trim()) {
-    conditions.push(eq("category", str(filter.category.trim())));
+    const cat = filter.category.trim();
+    if (cat.toLowerCase() === "design") {
+      conditions.push(or(eq("category", str("Design")), eq("category", str("Engineering"))));
+    } else {
+      conditions.push(eq("category", str(cat)));
+    }
   }
 
   // Filter 2: Provider Type
@@ -292,45 +307,79 @@ export async function queryArkivServices(
       .map(mapRowToRecord)
       .filter((rec) => !reservedKeys.has(rec.id.toLowerCase()) && !reservedKeys.has(rec.entityKey.toLowerCase()));
 
-    // If no direct services exist, also discover open providers from published Arkiv availability entities on Rabdi!
-    if (records.length === 0) {
+    // Filter direct services by normalized category if category filter is set
+    if (filter.category && filter.category.trim()) {
+      records = records.filter((r) => r.category.toLowerCase() === filter.category!.trim().toLowerCase());
+    }
+
+    // Also discover open providers from published Arkiv availability entities on Rabdi.
+    // Provider schedules represent 1-on-1 Engineering & Advisory consultations.
+    const availCategory = "Engineering";
+    const matchesCategory = !filter.category || filter.category.toLowerCase() === availCategory.toLowerCase();
+    const matchesProviderType = !filter.providerType || filter.providerType === "any" || filter.providerType === "human";
+    const defaultAvailPrice = 0.5;
+    const matchesPrice =
+      (filter.minPrice == null || defaultAvailPrice >= filter.minPrice) &&
+      (filter.maxPrice == null || defaultAvailPrice <= filter.maxPrice);
+    const matchesDuration = !filter.duration || filter.duration === 0 || Math.abs(60 - filter.duration) <= 30;
+
+    if (matchesCategory && matchesProviderType && matchesPrice && matchesDuration) {
       try {
         const availQuery = client.select().from(AvailabilitySchema).where(eq("status", str("open")));
         const availPage = await availQuery.withCount().limit(50).fetch();
         if (availPage.entities && availPage.entities.length > 0) {
-          // Sort newest first by target expiry block / created block so we always pick the latest active schedule
+          // Sort newest first by target expiry / created timestamp so we always pick the latest active schedule
           const sortedEntities = [...availPage.entities].sort((a, b) => {
             const expA = a.$expiresAt ? BigInt(a.$expiresAt) : 0n;
             const expB = b.$expiresAt ? BigInt(b.$expiresAt) : 0n;
             if (expA !== expB) return expA > expB ? -1 : 1;
-            const blockA = a.$createdBlock ? BigInt(a.$createdBlock) : 0n;
-            const blockB = b.$createdBlock ? BigInt(b.$createdBlock) : 0n;
-            return blockA > blockB ? -1 : 1;
+            const timeA = a.$createdAt ? BigInt(a.$createdAt) : 0n;
+            const timeB = b.$createdAt ? BigInt(b.$createdAt) : 0n;
+            return timeA > timeB ? -1 : 1;
           });
 
-          const seenWallets = new Set<string>();
+          // Deduplicate among open schedules for the same provider wallet (take newest)
+          const seenAvailWallets = new Set<string>();
           for (const av of sortedEntities) {
             const keyStr = (av.$key as string).toLowerCase();
             if (reservedKeys.has(keyStr)) continue;
 
             const pWallet = (av.providerWallet?.value || av.$owner || "") as string;
-            if (seenWallets.has(pWallet.toLowerCase())) continue;
-            seenWallets.add(pWallet.toLowerCase());
+            if (!pWallet || seenAvailWallets.has(pWallet.toLowerCase())) continue;
+            seenAvailWallets.add(pWallet.toLowerCase());
 
             const pName = av.providerName?.value || "Verified Provider";
             const dur = Number(av.durationMin?.value || 60);
             const slot = av.nextSlot?.value || new Date().toISOString();
+            const skills = ["Python", "Consultation", "Advisory", "Code Review", "Fullstack"];
+
+            // Check skill filter if specified
+            if (filter.skill && filter.skill.trim()) {
+              const skLower = filter.skill.trim().toLowerCase();
+              if (!skills.some((s) => s.toLowerCase().includes(skLower))) {
+                continue;
+              }
+            }
+
+            // Check search text filter if specified
+            if (filter.q && filter.q.trim()) {
+              const qLower = filter.q.trim().toLowerCase();
+              const text = `${pName} 1-on-1 Consultation ${skills.join(" ")}`.toLowerCase();
+              if (!text.includes(qLower)) {
+                continue;
+              }
+            }
 
             records.push({
               id: av.$key as string,
               entityKey: av.$key as string,
               title: `1-on-1 Consultation with ${pName}`,
-              category: filter.category || "Engineering",
-              skills: ["Consultation", "Advisory", "Code Review"],
-              providerType: (filter.providerType === "ai" ? "ai" : "human") as "human" | "ai",
+              category: availCategory,
+              skills,
+              providerType: "human",
               providerName: pName,
               providerWallet: pWallet,
-              price: 25.0,
+              price: defaultAvailPrice,
               currency: "HBAR",
               durationMin: dur,
               description: `Open availability published directly to Arkiv Rabdi testnet. Hourly blocks: ${av.dayHour?.value || "Flexible"}`,
@@ -340,16 +389,19 @@ export async function queryArkivServices(
               isArkivEntity: true,
             });
           }
-          return {
-            entities: records,
-            count: records.length,
-            queryExpression: `${queryExpression} [Discovered from slotpay.availability.v1]`,
-            isLiveArkiv: true,
-          };
         }
       } catch (availErr) {
-        console.warn("[SlotPay] Arkiv availability query notice:", availErr);
+        console.warn("[OASIS Protocol] Arkiv availability query notice:", availErr);
       }
+    }
+
+    // Apply sorting to combined services
+    if (filter.sort === "price") {
+      records.sort((a, b) => a.price - b.price);
+    } else if (filter.sort === "earliest") {
+      records.sort((a, b) => a.nextSlot.localeCompare(b.nextSlot));
+    } else {
+      records.sort((a, b) => b.rating - a.rating);
     }
 
     return {
