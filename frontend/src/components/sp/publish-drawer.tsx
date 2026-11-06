@@ -42,7 +42,7 @@ export function PublishDrawer({ service, onClose }: { service: Service | null; o
           txHash = onChain.tx_ref;
           expiresAt = onChain.expires_at;
         } catch (onChainErr: any) {
-          console.warn("[SlotPay] Real on-chain publish notice:", onChainErr);
+          console.warn("[OASIS] Real on-chain publish notice:", onChainErr);
           const msg: string = onChainErr?.message || String(onChainErr);
           const isChainError =
             msg.toLowerCase().includes("chain") ||
@@ -67,7 +67,7 @@ export function PublishDrawer({ service, onClose }: { service: Service | null; o
       setStep(3); // Confirmed
       qc.invalidateQueries({ queryKey: ["my-services"] });
     } catch (err: any) {
-      console.error("[SlotPay] Publish error:", err);
+      console.error("[OASIS] Publish error:", err);
       toast.error(`Publishing failed: ${err?.message || err}`);
       setStep(-1);
     }

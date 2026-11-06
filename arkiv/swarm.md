@@ -33,7 +33,7 @@ export const ServicesSchema = defineSchema("slotpay.services.v1", {
 ```
 
 > **Security & Privacy Rule Compliance**:
-> Arkiv entities are public and readable by any node on the Rabdi network. As specified in the track requirements, SlotPay **never** stores raw encrypted Swarm references (which embed their access keys) directly on Arkiv entities. The `swarmRef` stores the unencrypted 64-hex content-addressed Swarm reference of publicly viewable provider credentials and verified portfolios.
+> Arkiv entities are public and readable by any node on the Rabdi network. As specified in the track requirements, OASIS **never** stores raw encrypted Swarm references (which embed their access keys) directly on Arkiv entities. The `swarmRef` stores the unencrypted 64-hex content-addressed Swarm reference of publicly viewable provider credentials and verified portfolios.
 
 ---
 
@@ -48,7 +48,7 @@ export const ServicesSchema = defineSchema("slotpay.services.v1", {
 
 - **Direct Openable Links**:
   - **Swarm Gateway Link**: [https://api.gateway.ethswarm.org/bzz/96bfa8a3683f12445e999c104cf2ec700ab2f22b7a957d90d7003ffea3dc10b6](https://api.gateway.ethswarm.org/bzz/96bfa8a3683f12445e999c104cf2ec700ab2f22b7a957d90d7003ffea3dc10b6)
-  - **SlotPay Marketplace View**: Provider profile directly renders the `bzz://` reference with one-click verification on [SlotPay Marketplace](http://localhost:8080/buyer/marketplace).
+  - **OASIS Marketplace View**: Provider profile directly renders the `bzz://` reference with one-click verification on [OASIS Marketplace](http://localhost:8080/buyer/marketplace).
   - **Arkiv Rabdi Testnet RPC**: `https://rpc.rabdi.arkiv.network` with chain ID `7794095`.
 
 ---
@@ -100,7 +100,7 @@ Run this curl command in your terminal (or from `backend/`):
 curl -X POST "http://localhost:8000/api/swarm/upload" \
   -H "x-filename: solidity-audit-certificate.pdf" \
   -H "Content-Type: application/pdf" \
-  --data-binary "SlotPay Certified Smart Contract Auditor - Verified on Swarm and Arkiv"
+  --data-binary "OASIS Certified Smart Contract Auditor - Verified on Swarm and Arkiv"
 ```
 **Expected Output:**
 ```json
@@ -123,7 +123,7 @@ HTTP/1.1 200 OK
 content-type: application/pdf
 content-disposition: inline; filename="solidity-audit-certificate.pdf"
 
-SlotPay Certified Smart Contract Auditor - Verified on Swarm and Arkiv
+OASIS Certified Smart Contract Auditor - Verified on Swarm and Arkiv
 ```
 
 ### Step C: UI Workflow
@@ -154,5 +154,5 @@ SlotPay Certified Smart Contract Auditor - Verified on Swarm and Arkiv
 3. **Gateway MIME Types & Content-Disposition**:
    - Public Bee gateways sometimes default binary uploads to `application/octet-stream`, forcing downloads rather than in-browser PDF previews. We addressed this by preserving original `Content-Type` headers during multi-part upload.
 4. **Public Gateway (bzz.link) Moderation Filter**:
-   - The official Swarm public gateway (`bzz.link` / `gateway.ethswarm.org`) actively filters newly uploaded raw hashes with a "Request Approval for This Hash" gate to prevent abuse on their public domain. While the chunk exists in the decentralized network under its 64-hex hash, raw public domain downloads require ENS registration or manual approval. We solved this in SlotPay by providing dual verification: linking the official `bzz://` hash on the Swarm gateway while simultaneously providing an in-dApp preview proxy so hackathon judges and buyers can immediately review portfolio documents without delay.
+   - The official Swarm public gateway (`bzz.link` / `gateway.ethswarm.org`) actively filters newly uploaded raw hashes with a "Request Approval for This Hash" gate to prevent abuse on their public domain. While the chunk exists in the decentralized network under its 64-hex hash, raw public domain downloads require ENS registration or manual approval. We solved this in OASIS by providing dual verification: linking the official `bzz://` hash on the Swarm gateway while simultaneously providing an in-dApp preview proxy so hackathon judges and buyers can immediately review portfolio documents without delay.
 

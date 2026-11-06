@@ -6,7 +6,7 @@
 
 Every Arkiv primitive used in OASIS Protocol directly reflects the operational requirements of scheduling and professional commerce:
 
-| Arkiv Primitive | SlotPay Implementation | Why It Fits Our Application |
+| Arkiv Primitive | OASIS Implementation | Why It Fits Our Application |
 | :--- | :--- | :--- |
 | **Filtered Indexing** | `category = str('Security') AND price <= dec(50.00)` | AI agents and buyers need instant parameter search across rate limits and skill categories without full table scans. |
 | **Owner Cryptographic Control** | `providerWallet` owns `slotpay.services.v1` | Sellers have absolute sovereignty over their rates, credentials, and listed availability. Platform operators cannot tamper with provider terms. |

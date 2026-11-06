@@ -1,7 +1,7 @@
 /**
  * Swarm Decentralized Storage Client.
  * Connects directly to the live Ethereum Swarm public gateway (https://api.gateway.ethswarm.org/bzz)
- * and synchronizes with SlotPay backend storage for local verification.
+ * and synchronizes with OASIS backend storage for local verification.
  */
 
 import { API_BASE_URL } from "./api";
@@ -20,7 +20,7 @@ export interface SwarmUploadResult {
 /**
  * Upload actual file bytes to Swarm:
  * 1. Pushes the real raw payload directly to live Swarm Bee gateway (POST /bzz).
- * 2. Backs it up to the local SlotPay storage router so you can read and verify it.
+ * 2. Backs it up to the local OASIS storage router so you can read and verify it.
  */
 export async function uploadToSwarm(fileOrData: File | string): Promise<SwarmUploadResult> {
   let liveReference: string | null = null;
@@ -44,11 +44,11 @@ export async function uploadToSwarm(fileOrData: File | string): Promise<SwarmUpl
       if (data.reference) {
         liveReference = data.reference;
         isLive = true;
-        console.log("[SlotPay] Real Swarm Network upload successful! Hash:", liveReference);
+        console.log("[OASIS] Real Swarm Network upload successful! Hash:", liveReference);
       }
     }
   } catch (err) {
-    console.warn("[SlotPay] Swarm public gateway network notice:", err);
+    console.warn("[OASIS] Swarm public gateway network notice:", err);
   }
 
   // 2. Sync file with local backend storage (and persist with live reference)
@@ -74,7 +74,7 @@ export async function uploadToSwarm(fileOrData: File | string): Promise<SwarmUpl
       }
     }
   } catch (err) {
-    console.warn("[SlotPay] Backend upload sync notice:", err);
+    console.warn("[OASIS] Backend upload sync notice:", err);
   }
 
   // If both live network and backend were contacted, use the live reference

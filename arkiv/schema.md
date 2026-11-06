@@ -66,14 +66,14 @@ export const ReservationSchema = defineSchema("slotpay.reservation.v1", {
 });
 ```
 
-- **Owner**: SlotPay Platform Operator (`0xc819c505B7Bb52ef8a77311d09526E46F8403C09`). Owned by the protocol to guarantee that slots are burned immutably upon verified x402 payment, preventing double-booking without altering provider-owned service entities.
+- **Owner**: OASIS Platform Operator (`0xc819c505B7Bb52ef8a77311d09526E46F8403C09`). Owned by the protocol to guarantee that slots are burned immutably upon verified x402 payment, preventing double-booking without altering provider-owned service entities.
 - **Expiration (TTL)**: 14 days. Retained until the booked consultation is delivered and verified, then cleanly garbage-collected.
 
 ---
 
 ## 2. Indexed Fields & Query Strategy
 
-SlotPay takes advantage of Arkiv's native indexing across all key discovery parameters:
+OASIS takes advantage of Arkiv's native indexing across all key discovery parameters:
 - `category` & `skills`: Fast keyword and domain categorization (e.g. `category = str('Engineering')`).
 - `providerType`: Instant discrimination between human specialists and 24/7 autonomous AI agents (`providerType = str('ai')`).
 - `price`: Range filtering and ceiling budgets (`price <= dec(50.00)`).

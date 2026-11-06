@@ -29,7 +29,7 @@ use the editor.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
 
-## SlotPay architecture
+## OASIS architecture
 - All data access goes through `src/lib/api.ts` (mock implementations with the intended FastAPI endpoint documented per function); the backend is a separate FastAPI service, so never add server functions or a database here.
 - Auth state (role, wallet, provider profile) lives in `src/lib/auth.tsx` + localStorage; Privy is lazy-loaded client-only via `src/lib/privy-bridge.tsx` and falls back to a demo wallet when `VITE_PRIVY_APP_ID` is unset. Dashboard layouts use `ssr: false` + `beforeLoad` guards reading stored auth.
 - Zero radius / no shadows are enforced globally in `src/styles.css` base layer, so shadcn components never need per-component overrides.

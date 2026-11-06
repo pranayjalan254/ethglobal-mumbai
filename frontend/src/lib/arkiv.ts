@@ -1,5 +1,5 @@
 /**
- * Arkiv Web3 Database Integration for SlotPay.
+ * Arkiv Web3 Database Integration for OASIS.
  *
  * Implements:
  * - Arkiv Rabdi chain connection with publicClient
@@ -14,7 +14,7 @@ import { and, asc, between, desc, eq, gte, lte, or, startsWith } from "@arkiv-ne
 import { addr, dec, defineSchema, i32, str } from "@arkiv-network/sdk/schema";
 import { custom, http } from "viem";
 
-// Canonical SlotPay Services Schema on Arkiv with indexed searchable columns
+// Canonical OASIS Services Schema on Arkiv with indexed searchable columns
 export const ServicesSchema = defineSchema("slotpay.services.v1", {
   title: str().indexed(),
   category: str().indexed(),
@@ -31,7 +31,7 @@ export const ServicesSchema = defineSchema("slotpay.services.v1", {
   swarmRef: str(),
 });
 
-// Canonical SlotPay Availability Schema on Arkiv
+// Canonical OASIS Availability Schema on Arkiv
 export const AvailabilitySchema = defineSchema("slotpay.availability.v1", {
   providerWallet: addr().indexed(),
   providerName: str(),
@@ -41,7 +41,7 @@ export const AvailabilitySchema = defineSchema("slotpay.availability.v1", {
   durationMin: i32().indexed(),
 });
 
-// Canonical SlotPay Reservation Schema on Arkiv (SlotPay-owned)
+// Canonical OASIS Reservation Schema on Arkiv (OASIS-owned)
 export const ReservationSchema = defineSchema("slotpay.reservation.v1", {
   reservationId: str().indexed(),
   slotId: str().indexed(),
@@ -149,7 +149,7 @@ export async function queryArkivReservations(
         return true;
       });
   } catch (err) {
-    console.warn("[SlotPay] Arkiv reservations query notice:", err);
+    console.warn("[OASIS] Arkiv reservations query notice:", err);
     return [];
   }
 }
@@ -412,7 +412,7 @@ export async function queryArkivServices(
       skipped: page.skipped,
     };
   } catch (error) {
-    console.warn("[SlotPay] Arkiv public query fell back or returned notice:", error);
+    console.warn("[OASIS] Arkiv public query fell back or returned notice:", error);
     return {
       entities: [],
       count: 0,
@@ -500,7 +500,7 @@ export async function getArkivService(entityKey: string): Promise<ArkivServiceRe
 
     return null;
   } catch (err) {
-    console.warn("[SlotPay] Arkiv getEntity error:", err);
+    console.warn("[OASIS] Arkiv getEntity error:", err);
     return null;
   }
 }
@@ -729,7 +729,7 @@ export async function publishAvailabilityOnChain(
         .filter(Boolean);
     }
   } catch (err) {
-    console.warn("[SlotPay] Notice querying superseded availability entities:", err);
+    console.warn("[OASIS] Notice querying superseded availability entities:", err);
   }
 
   const values = {
@@ -744,7 +744,7 @@ export async function publishAvailabilityOnChain(
   // If previous entities exist, atomically delete old ones and create the new one in 1 transaction
   if (oldEntityKeys.length > 0) {
     try {
-      console.log(`[SlotPay] Replacing ${oldEntityKeys.length} superseded availability entities in 1 batch transaction...`);
+      console.log(`[OASIS] Replacing ${oldEntityKeys.length} superseded availability entities in 1 batch transaction...`);
       const batchResult = await walletClient.executeBatch({
         deletes: oldEntityKeys.map((k) => ({ entityKey: k })),
         creates: [
@@ -764,7 +764,7 @@ export async function publishAvailabilityOnChain(
         deleted_count: oldEntityKeys.length,
       };
     } catch (batchErr) {
-      console.warn("[SlotPay] Atomic executeBatch failed, falling back to standard createEntity:", batchErr);
+      console.warn("[OASIS] Atomic executeBatch failed, falling back to standard createEntity:", batchErr);
     }
   }
 
@@ -783,7 +783,7 @@ export async function publishAvailabilityOnChain(
 }
 
 /**
- * Publish a SlotPay-owned PendingSlotClaim on Arkiv Rabdi testnet (5-minute expiration).
+ * Publish a OASIS-owned PendingSlotClaim on Arkiv Rabdi testnet (5-minute expiration).
  */
 export async function createPendingSlotClaimOnChain(
   providerOrClient: any,
@@ -824,7 +824,7 @@ export async function createPendingSlotClaimOnChain(
 }
 
 /**
- * Publish a SlotPay-owned ConfirmedReservation on Arkiv Rabdi testnet.
+ * Publish a OASIS-owned ConfirmedReservation on Arkiv Rabdi testnet.
  */
 export async function createConfirmedReservationOnChain(
   providerOrClient: any,

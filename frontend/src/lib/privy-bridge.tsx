@@ -27,17 +27,17 @@ function Bridge() {
       }
       if (isNewUser) {
         // New users will continue through the onboarding flow naturally
-        console.log("[SlotPay] New user registered via Privy");
+        console.log("[OASIS] New user registered via Privy");
       }
     },
     onError: (err) => {
-      console.error("[SlotPay] Privy login error", err);
+      console.error("[OASIS] Privy login error", err);
     },
   });
 
   const { logout } = useLogout({
     onSuccess: () => {
-      console.log("[SlotPay] Logged out");
+      console.log("[OASIS] Logged out");
     },
   });
 
@@ -46,7 +46,7 @@ function Bridge() {
       auth._onAuthenticated(wallet.address, null);
     },
     onError: (err) => {
-      console.error("[SlotPay] Wallet connect error", err);
+      console.error("[OASIS] Wallet connect error", err);
     },
   });
 
@@ -82,7 +82,7 @@ function Bridge() {
               await targetWallet.switchChain(reqChainId);
             }
           } catch (switchErr) {
-            console.warn("[SlotPay] Privy switchChain initial attempt (will prompt via EIP-1193):", switchErr);
+            console.warn("[OASIS] Privy switchChain initial attempt (will prompt via EIP-1193):", switchErr);
           }
         }
 

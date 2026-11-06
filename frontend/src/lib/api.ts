@@ -1,5 +1,5 @@
 /**
- * SlotPay API client.
+ * OASIS API client.
  *
  * Links the frontend to the FastAPI backend at API_BASE_URL.
  * Supports Arkiv open database service discovery, Hedera x402 payment challenges,
@@ -306,7 +306,7 @@ export async function listServices(query: ServiceQuery = {}): Promise<ServicesLi
     mapped.totalCount = arkivRes.count ?? mapped.length;
     return mapped;
   } catch (arkivErr) {
-    console.warn("[SlotPay] Arkiv direct query notice:", arkivErr);
+    console.warn("[OASIS] Arkiv direct query notice:", arkivErr);
   }
 
   // 2. Query FastAPI backend which connects directly to Arkiv
@@ -330,7 +330,7 @@ export async function listServices(query: ServiceQuery = {}): Promise<ServicesLi
     mapped.totalCount = mapped.length;
     return mapped;
   } catch (err) {
-    console.warn("[SlotPay] FastAPI /api/services error:", err);
+    console.warn("[OASIS] FastAPI /api/services error:", err);
   }
 
   // Return real database results only (empty if 0 entities on Arkiv). No mock data fallback.
@@ -353,7 +353,7 @@ export async function getService(id: string): Promise<Service> {
         service = arkivRecordToService(arkivRec);
       }
     } catch (err) {
-      console.warn("[SlotPay] Arkiv getEntity fetch notice:", err);
+      console.warn("[OASIS] Arkiv getEntity fetch notice:", err);
     }
   }
 
@@ -667,7 +667,7 @@ export async function autoLinkSwarmDocument(owner: string, filename: string, swa
     });
     if (res.ok) return await res.json();
   } catch (err) {
-    console.warn("[SlotPay] Auto-link notice:", err);
+    console.warn("[OASIS] Auto-link notice:", err);
   }
   return null;
 }

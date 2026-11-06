@@ -1,5 +1,5 @@
 /**
- * Hedera x402 Autonomous Payment Client for SlotPay.
+ * Hedera x402 Autonomous Payment Client for OASIS.
  *
  * Implements Hedera payments:
  * - Responds to HTTP 402 Payment Required challenges
@@ -143,7 +143,7 @@ export async function executeAutonomousHederaPayment(params: {
         gasSponsored: false,
       };
     } catch (realTxErr) {
-      console.error("[SlotPay] Real on-chain Hedera payment error:", realTxErr);
+      console.error("[OASIS] Real on-chain Hedera payment error:", realTxErr);
       throw realTxErr;
     }
   }

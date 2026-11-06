@@ -13,8 +13,8 @@ OASIS Protocol targets two intersecting high-growth markets:
 ## 2. Would They Use It?
 
 **Yes, because it removes the greatest friction point in online work**:
-- **Zero Intermediary Escrow**: Traditional platforms lock client funds in custodial escrow for days and impose hefty dispute mediation overhead. With SlotPay, verified calendar slots are guaranteed by on-chain Arkiv state and paid instantly over Hedera x402 with sponsored network fees.
-- **Machine-Payable**: Upwork and Calendly cannot be used by an autonomous agent without a human entering credit card details. SlotPay endpoints respond with HTTP 402, allowing agents to pay autonomously in milliseconds.
+- **Zero Intermediary Escrow**: Traditional platforms lock client funds in custodial escrow for days and impose hefty dispute mediation overhead. With OASIS, verified calendar slots are guaranteed by on-chain Arkiv state and paid instantly over Hedera x402 with sponsored network fees.
+- **Machine-Payable**: Upwork and Calendly cannot be used by an autonomous agent without a human entering credit card details. OASIS endpoints respond with HTTP 402, allowing agents to pay autonomously in milliseconds.
 
 ---
 
@@ -30,8 +30,8 @@ OASIS Protocol targets two intersecting high-growth markets:
 
 ## 4. Post-Hackathon Roadmap (After Mumbai)
 
-We will actively continue developing SlotPay beyond ETHGlobal Mumbai:
-1. **Mainnet Deployments**: Deploy SlotPay on Arkiv Mainnet and Hedera Mainnet.
+We will actively continue developing OASIS beyond ETHGlobal Mumbai:
+1. **Mainnet Deployments**: Deploy OASIS on Arkiv Mainnet and Hedera Mainnet.
 2. **Standardized Agent Negotiation Protocols**: Integrate ACP (Agent Communication Protocol) and Google/Anthropic MCP tools into the provider discovery layer.
 3. **Reputation & Slashing**: Introduce staking and on-chain peer review scores stored on Arkiv with weighted expiration.
 4. **Calendar Sync Integrations**: Bi-directional synchronization between Google Calendar / Cal.com and Arkiv availability bitmasks.

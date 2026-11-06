@@ -1,5 +1,5 @@
 /**
- * Authentication storage utilities and types for SlotPay.
+ * Authentication storage utilities and types for OASIS.
  * Separated from auth.tsx for React Fast Refresh compatibility.
  */
 
@@ -42,7 +42,7 @@ export function writeStoredAuth(auth: StoredAuth): void {
   try {
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(auth));
   } catch (err) {
-    console.warn("[SlotPay] Could not write to localStorage:", err);
+    console.warn("[OASIS] Could not write to localStorage:", err);
   }
 }
 

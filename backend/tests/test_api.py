@@ -1,5 +1,5 @@
 """
-Comprehensive unit tests for SlotPay FastAPI endpoints and services.
+Comprehensive unit tests for OASIS FastAPI endpoints and services.
 """
 
 from __future__ import annotations
