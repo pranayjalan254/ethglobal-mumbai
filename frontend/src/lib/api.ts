@@ -6,7 +6,13 @@
  * and SSE streaming autonomous agent chat.
  */
 
-import { queryArkivServices, getArkivExpiration } from "./arkiv";
+import {
+  queryArkivServices,
+  getArkivService,
+  getArkivExpiration,
+  type ArkivServiceRecord,
+  type ArkivQueryResult,
+} from "./arkiv";
 import { create402Challenge, executeAutonomousHederaPayment, type X402PaymentRequirements } from "./x402-hedera";
 
 export const API_BASE_URL: string =
@@ -151,27 +157,128 @@ export async function http<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-// ---------------------------------------------------------------- endpoints linked with FastAPI
+// ---------------------------------------------------------------- endpoints linked with Arkiv & FastAPI
 
-/** GET /api/services?q&category&skill&provider_type&min_price&max_price&date&duration */
-export async function listServices(query: ServiceQuery = {}): Promise<Service[]> {
-  const params = new URLSearchParams();
-  if (query.q) params.set("q", query.q);
-  if (query.category) params.set("category", query.category);
-  if (query.skill) params.set("skill", query.skill);
-  if (query.provider_type && query.provider_type !== "any") params.set("provider_type", query.provider_type);
-  if (query.min_price != null) params.set("min_price", String(query.min_price));
-  if (query.max_price != null) params.set("max_price", String(query.max_price));
-  if (query.duration) params.set("duration", String(query.duration));
-  if (query.date) params.set("date", query.date);
-  if (query.sort) params.set("sort", query.sort);
-  const qs = params.toString();
-  return http<Service[]>(`/api/services${qs ? `?${qs}` : ""}`);
+export function arkivRecordToService(rec: ArkivServiceRecord): Service {
+  return {
+    id: rec.id,
+    title: rec.title,
+    category: rec.category,
+    skills: rec.skills,
+    description: rec.description,
+    price: rec.price,
+    currency: rec.currency,
+    durationMin: rec.durationMin,
+    provider: {
+      id: `p_${rec.providerWallet.slice(2, 10) || "arkiv"}`,
+      name: rec.providerName,
+      type: rec.providerType,
+      headline: `${rec.providerType === "human" ? "Independent consultant" : "Autonomous agent"} · Verified on Arkiv`,
+      bio: rec.description || "Service listing published directly to Arkiv Rabdi testnet.",
+      wallet: rec.providerWallet || "0x0",
+      rating: rec.rating,
+      reviews: 1,
+      credentials: ["Arkiv Verified Provider"],
+      documents: [],
+    },
+    status: "published",
+    entityKey: rec.entityKey,
+    expiresAt: rec.expiresAt,
+    nextSlot: rec.nextSlot,
+    location: "remote",
+  };
 }
 
-/** GET /api/services/{id} */
+export type ServicesListResponse = Service[] & {
+  arkivExpression?: string;
+  isLiveArkiv?: boolean;
+  totalCount?: number;
+};
+
+/** GET services directly querying Arkiv Rabdi testnet open database, with FastAPI fallback */
+export async function listServices(query: ServiceQuery = {}): Promise<ServicesListResponse> {
+  let arkivExpression = "";
+  let isLive = false;
+
+  // 1. Direct typed query to Arkiv Rabdi testnet open database using SDK 1.0.x
+  try {
+    const arkivRes = await queryArkivServices({
+      q: query.q,
+      category: query.category,
+      skill: query.skill,
+      providerType: query.provider_type,
+      minPrice: query.min_price,
+      maxPrice: query.max_price,
+      duration: query.duration,
+      date: query.date,
+      sort: query.sort,
+    });
+
+    arkivExpression = arkivRes.queryExpression;
+    isLive = arkivRes.isLiveArkiv;
+
+    const mapped = (arkivRes.entities || []).map(arkivRecordToService) as ServicesListResponse;
+    mapped.arkivExpression = arkivExpression;
+    mapped.isLiveArkiv = isLive;
+    mapped.totalCount = arkivRes.count ?? mapped.length;
+    return mapped;
+  } catch (arkivErr) {
+    console.warn("[SlotPay] Arkiv direct query notice:", arkivErr);
+  }
+
+  // 2. Query FastAPI backend which connects directly to Arkiv
+  try {
+    const params = new URLSearchParams();
+    if (query.q) params.set("q", query.q);
+    if (query.category) params.set("category", query.category);
+    if (query.skill) params.set("skill", query.skill);
+    if (query.provider_type && query.provider_type !== "any") params.set("provider_type", query.provider_type);
+    if (query.min_price != null) params.set("min_price", String(query.min_price));
+    if (query.max_price != null) params.set("max_price", String(query.max_price));
+    if (query.duration) params.set("duration", String(query.duration));
+    if (query.date) params.set("date", query.date);
+    if (query.sort) params.set("sort", query.sort);
+    const qs = params.toString();
+    const res = await http<Service[]>(`/api/services${qs ? `?${qs}` : ""}`);
+    const mapped = (res || []) as ServicesListResponse;
+    mapped.arkivExpression = arkivExpression;
+    mapped.isLiveArkiv = true;
+    mapped.totalCount = mapped.length;
+    return mapped;
+  } catch (err) {
+    console.warn("[SlotPay] FastAPI /api/services error:", err);
+  }
+
+  // Return real database results only (empty if 0 entities on Arkiv). No mock data fallback.
+  const emptyResult = [] as unknown as ServicesListResponse;
+  emptyResult.arkivExpression = arkivExpression;
+  emptyResult.isLiveArkiv = isLive;
+  emptyResult.totalCount = 0;
+  return emptyResult;
+}
+
+/** GET /api/services/{id} or direct Arkiv entity fetch */
 export async function getService(id: string): Promise<Service> {
-  return http<Service>(`/api/services/${id}`);
+  // If id is an Arkiv entity key (0x...), query Arkiv directly
+  if (id.startsWith("0x")) {
+    try {
+      const arkivRec = await getArkivService(id);
+      if (arkivRec) {
+        return arkivRecordToService(arkivRec);
+      }
+    } catch (err) {
+      console.warn("[SlotPay] Arkiv getEntity fetch notice:", err);
+    }
+  }
+
+  try {
+    return await http<Service>(`/api/services/${id}`);
+  } catch (_err) {
+    await delay(30);
+    const s = services().find((x) => x.id === id) ?? MY_SERVICES?.find((x) => x.id === id);
+    if (!s) throw new Error("Service not found");
+    return s;
+  }
 }
 
 /** GET /api/services?owner={wallet} */

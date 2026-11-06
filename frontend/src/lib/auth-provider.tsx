@@ -69,10 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (bridge.current?.getEthereumProvider) {
           return await bridge.current.getEthereumProvider(chainId);
         }
-        if (typeof window !== "undefined" && (window as any).ethereum) {
-          return (window as any).ethereum;
-        }
-        throw new Error("No Web3 wallet provider available. Please connect with Privy or MetaMask.");
+        // No Privy bridge — should not happen in production
+        throw new Error("No Privy wallet connected. Please log in with Privy to publish to Arkiv.");
       },
       setRole: (role) => update({ role }),
       setProfile: (profile) => update({ profile }),

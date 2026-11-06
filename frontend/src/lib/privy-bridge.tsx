@@ -83,13 +83,16 @@ function Bridge() {
             }
           } catch (switchErr) {
             console.warn("[SlotPay] Privy switchChain notice:", switchErr);
+            // Throw so the UI can tell the user clearly
+            throw new Error(
+              `Could not switch your Privy wallet to Arkiv Rabdi (chain ${arkivChain.id}). ` +
+              `Please accept the network switch in Privy and try again. ` +
+              `(${switchErr?.message ?? switchErr})`
+            );
           }
-          return await targetWallet.getEthereumProvider();
         }
-        if (typeof window !== "undefined" && (window as any).ethereum) {
-          return (window as any).ethereum;
-        }
-        throw new Error("No connected Privy wallet found.");
+
+        return await targetWallet.getEthereumProvider();
       },
     });
     return () => auth._registerBridge(null);

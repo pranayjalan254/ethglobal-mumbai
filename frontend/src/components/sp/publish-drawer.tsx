@@ -43,7 +43,16 @@ export function PublishDrawer({ service, onClose }: { service: Service | null; o
           expiresAt = onChain.expires_at;
         } catch (onChainErr: any) {
           console.warn("[SlotPay] Real on-chain publish notice:", onChainErr);
-          toast.error(`On-chain transaction notice: ${onChainErr?.message || onChainErr}`);
+          const msg: string = onChainErr?.message || String(onChainErr);
+          const isChainError =
+            msg.toLowerCase().includes("chain") ||
+            msg.toLowerCase().includes("network") ||
+            msg.toLowerCase().includes("switch");
+          toast.error(
+            isChainError
+              ? "Wrong network — please switch to Arkiv Rabdi (chain 7794095) in your wallet and try again."
+              : `On-chain transaction notice: ${msg.slice(0, 120)}`
+          );
         }
       }
 

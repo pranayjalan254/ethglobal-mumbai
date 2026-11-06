@@ -67,7 +67,18 @@ function Availability() {
                   });
                 } catch (onChainErr: any) {
                   console.warn("[SlotPay] On-chain publish notice:", onChainErr);
-                  toast.error(`On-chain notice: ${onChainErr?.message || onChainErr}`, { id: "arkiv-avail-tx" });
+                  const msg: string = onChainErr?.message || String(onChainErr);
+                  // Surface a clear network-switch prompt if it's a chain mismatch
+                  const isChainError =
+                    msg.toLowerCase().includes("chain") ||
+                    msg.toLowerCase().includes("network") ||
+                    msg.toLowerCase().includes("switch");
+                  toast.error(
+                    isChainError
+                      ? "Wrong network — please switch to Arkiv Rabdi (chain 7794095) in your wallet and try again."
+                      : `Publish notice: ${msg.slice(0, 120)}`,
+                    { id: "arkiv-avail-tx", duration: 8000 }
+                  );
                 }
               }
               const r = await publishAvailability([...cells], walletAddress || undefined);

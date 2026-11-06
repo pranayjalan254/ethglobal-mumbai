@@ -42,17 +42,26 @@ def list_services(
     if owner:
         return service_store.list_my_services(owner)
 
-    return service_store.list_services(
+    # Query Arkiv Rabdi testnet database directly
+    from agent.arkiv_client import arkiv_client
+    from schemas.arkiv import ArkivQueryFilter, ProviderType
+
+    p_type = ProviderType.ANY
+    if provider_type == "human":
+        p_type = ProviderType.HUMAN
+    elif provider_type == "ai":
+        p_type = ProviderType.AI
+
+    q_filter = ArkivQueryFilter(
         q=q,
         category=category,
-        skill=skill,
-        provider_type=provider_type,
+        provider_type=p_type,
         min_price=min_price,
         max_price=max_price,
-        date=date,
-        duration=duration,
-        sort=sort,
+        duration_min=duration,
+        skills=[skill] if skill else [],
     )
+    return arkiv_client.query_services(q_filter)
 
 
 @router.get("/{service_id}", response_model=ServiceSchema)
