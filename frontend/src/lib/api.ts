@@ -13,10 +13,36 @@ import {
   type ArkivServiceRecord,
 } from "./arkiv";
 
-export const API_BASE_URL: string =
-  ((import.meta as unknown as { env?: Record<string, string | undefined> }).env?.[
-    "VITE_API_BASE_URL"
-  ] as string | undefined) ?? "http://localhost:8000";
+function resolveApiBaseUrl(): string {
+  const env = (import.meta as unknown as { env?: Record<string, string | boolean | undefined> }).env || {};
+
+  const isBrowser = typeof window !== "undefined";
+  const hostname = isBrowser ? window.location.hostname.toLowerCase() : "";
+
+  // Production check: Vite build mode or running on non-localhost domains (e.g. vercel.app)
+  const isProd =
+    env["PROD"] === true ||
+    env["MODE"] === "production" ||
+    (isBrowser && (hostname.includes("vercel.app") || hostname.includes("onrender.com") || (!hostname.includes("localhost") && !hostname.includes("127.0.0.1"))));
+
+  if (isProd) {
+    const prodUrl =
+      (env["VITE_PROD_API_URL"] as string | undefined) ||
+      (env["VITE_API_URL"] as string | undefined) ||
+      (env["VITE_API_BASE_URL"] as string | undefined) ||
+      "https://ethglobal-mumbai.onrender.com";
+    return prodUrl.replace(/\/+$/, "");
+  }
+
+  // Local development
+  const localUrl =
+    (env["VITE_API_URL"] as string | undefined) ||
+    (env["VITE_API_BASE_URL"] as string | undefined) ||
+    "http://localhost:8000";
+  return localUrl.replace(/\/+$/, "");
+}
+
+export const API_BASE_URL: string = resolveApiBaseUrl();
 
 export const EXPLORER_BASE = "https://hashscan.io/testnet/transaction/";
 

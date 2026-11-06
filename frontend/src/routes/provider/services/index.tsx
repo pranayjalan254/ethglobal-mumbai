@@ -2,17 +2,19 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
+import { EntityMutationError } from "@arkiv-network/sdk";
 import { Button } from "@/components/ui/button";
 import { listMyServices, renewService, unpublishService, type Service } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { dateOnly, money } from "@/lib/format";
+import { deleteServiceOnChain } from "@/lib/arkiv";
+import { dateOnly, formatExpiration, money } from "@/lib/format";
 import { Empty, ErrorBlock, Mono, PageHeader, RuledTable, SkeletonRows, Status } from "@/components/sp/primitives";
 import { PublishDrawer } from "@/components/sp/publish-drawer";
 
 export const Route = createFileRoute("/provider/services/")({ component: MyServices });
 
 function MyServices() {
-  const { walletAddress } = useAuth();
+  const { walletAddress, getEthereumProvider } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const q = useQuery({
@@ -32,7 +34,46 @@ function MyServices() {
         if (label === "Edit") return navigate({ to: "/provider/services/$id", params: { id: s.id } });
         if (label === "Publish to Arkiv") return setPublishing(s);
         if (label === "Renew") { await renewService(s.id); toast("Listing renewed for 30 days"); }
-        if (label === "Unpublish") { await unpublishService(s.id); toast("Listing unpublished"); }
+        if (label === "Unpublish") {
+          const entityKey = s.entityKey || (s.id.startsWith("0x") ? s.id : null);
+          let onChainDeleted = false;
+
+          if (entityKey && walletAddress) {
+            const toastId = toast.loading("Sending deleteEntity operation to Arkiv testnet...");
+            try {
+              const provider = await getEthereumProvider();
+              const res = await deleteServiceOnChain(provider, walletAddress, entityKey);
+              toast.success(`Entity deleted from Arkiv (tx: ${res.txHash.slice(0, 10)}...)`, { id: toastId });
+              onChainDeleted = true;
+            } catch (delErr: any) {
+              console.warn("[OASIS Protocol] On-chain delete notice:", delErr);
+              const msg = delErr?.message || String(delErr);
+              if (
+                delErr instanceof EntityMutationError ||
+                msg.includes("expired") ||
+                msg.includes("not exist") ||
+                msg.includes("No live entity")
+              ) {
+                toast.info("Entity was already expired or removed from Arkiv.", { id: toastId });
+                onChainDeleted = true;
+              } else if (
+                msg.includes("network") ||
+                msg.includes("chain") ||
+                msg.includes("JsonRpcEngine") ||
+                msg.includes("switch")
+              ) {
+                toast.warning("Wallet not on Arkiv Rabdi chain (7794095). Unpublished locally as draft.", { id: toastId });
+              } else {
+                toast.error(`Arkiv delete transaction failed: ${msg.slice(0, 90)}`, { id: toastId });
+              }
+            }
+          }
+
+          await unpublishService(s.id);
+          if (!onChainDeleted && !entityKey) {
+            toast("Listing unpublished");
+          }
+        }
         refresh();
       }}
     >
@@ -55,7 +96,7 @@ function MyServices() {
             { key: "p", header: "Price", render: (s) => <Mono>{money(s.price, s.currency)}</Mono> },
             { key: "d", header: "Duration", render: (s) => <Mono>{s.durationMin} min</Mono> },
             { key: "s", header: "Status", render: (s) => s.status === "published" ? <Status tone="success">Published on Arkiv</Status> : s.status === "expired" ? <Status tone="danger">Expired</Status> : <Status>Draft</Status> },
-            { key: "e", header: "Expires", render: (s) => <Mono className="text-ink-muted">{s.expiresAt ? dateOnly(s.expiresAt) : "—"}</Mono> },
+            { key: "e", header: "Expires", render: (s) => <Mono className="text-ink-muted">{formatExpiration(s.expiresAt)}</Mono> },
             {
               key: "a", header: "Actions", render: (s) => (
                 <div className="flex flex-wrap justify-end gap-x-4 gap-y-1 md:justify-start">

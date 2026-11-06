@@ -8,7 +8,7 @@
  * - Time-scoped publishing using ExpirationTime
  */
 
-import { createPublicClient, createWalletClient, ExpirationTime } from "@arkiv-network/sdk";
+import { createPublicClient, createWalletClient, EntityMutationError, ExpirationTime } from "@arkiv-network/sdk";
 import { rabdi } from "@arkiv-network/sdk/chains";
 import { and, asc, between, desc, eq, gte, lte, or, startsWith } from "@arkiv-network/sdk/query";
 import { addr, dec, defineSchema, i32, str } from "@arkiv-network/sdk/schema";
@@ -553,17 +553,24 @@ export async function getArkivWalletClient(provider: any, accountAddress: string
       }
 
       if (code === 4902 || code === -32603 || String(switchError?.message || "").toLowerCase().includes("unrecognized")) {
-        // Chain not known to wallet — prompt wallet to add Arkiv Rabdi, then switch
+        // Chain not known to wallet — prompt wallet to add Arkiv Rabdi, then switch.
+        // Wallets (MetaMask etc.) reject RPC URLs with path parameters in wallet_addEthereumChain.
+        // We provide the clean base RPC endpoint.
+        const cleanRpcUrl = "https://rpc.rabdi.db-chain.testnet.arkiv.network";
         try {
           await provider.request({
             method: "wallet_addEthereumChain",
             params: [
               {
                 chainId: chainIdHex,
-                chainName: arkivChain.name,
-                nativeCurrency: arkivChain.nativeCurrency,
-                rpcUrls: arkivChain.rpcUrls.default.http,
-                blockExplorerUrls: [arkivChain.blockExplorers.default.url],
+                chainName: "Arkiv Rabdi",
+                nativeCurrency: {
+                  name: "Golem",
+                  symbol: "tGLM",
+                  decimals: 18,
+                },
+                rpcUrls: [cleanRpcUrl],
+                blockExplorerUrls: ["https://rabdi.explorer.arkiv.network"],
               },
             ],
           });
@@ -625,15 +632,15 @@ export async function publishServiceOnChain(
     price: number;
     currency: string;
     durationMin: number;
-    description?: string;
-    nextSlot?: string;
-    swarmRef?: string;
+    description?: string | undefined;
+    nextSlot?: string | undefined;
+    swarmRef?: string | undefined;
     provider?: {
-      name?: string;
-      type?: "human" | "ai";
-      rating?: number;
-      wallet?: string;
-    };
+      name?: string | undefined;
+      type?: "human" | "ai" | undefined;
+      rating?: number | undefined;
+      wallet?: string | undefined;
+    } | undefined;
   },
   days: number = 30,
 ) {
@@ -668,6 +675,29 @@ export async function publishServiceOnChain(
     entity_key: result.entityKey,
     tx_ref: result.txHash,
     expires_at: result.expiresAt ? result.expiresAt.toString() : new Date().toISOString(),
+  };
+}
+
+/**
+ * Delete a service entity on-chain from Arkiv Rabdi testnet before expiration.
+ */
+export async function deleteServiceOnChain(
+  provider: any,
+  accountAddress: string,
+  entityKey: string,
+): Promise<{ entityKey: string; txHash: string }> {
+  if (!entityKey || !entityKey.startsWith("0x")) {
+    throw new Error("Invalid or missing Arkiv entity key for deletion.");
+  }
+
+  const walletClient = await getArkivWalletClient(provider, accountAddress);
+  const result = await walletClient.deleteEntity({
+    entityKey: entityKey as `0x${string}`,
+  });
+
+  return {
+    entityKey: result.entityKey,
+    txHash: result.txHash,
   };
 }
 

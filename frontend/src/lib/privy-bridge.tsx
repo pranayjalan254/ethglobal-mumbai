@@ -86,7 +86,10 @@ function Bridge() {
           }
         }
 
-        return await targetWallet.getEthereumProvider();
+        if (targetWallet) {
+          return await targetWallet.getEthereumProvider();
+        }
+        throw new Error("No connected wallet available.");
       },
     });
     return () => auth._registerBridge(null);

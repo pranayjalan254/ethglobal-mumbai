@@ -4,7 +4,8 @@ export function parseDateSafely(val: unknown): Date | null {
   if (!val) return null;
   if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
   if (typeof val === "number") {
-    // If seconds (< 1e11), convert to ms
+    // If small number (< year 2000 in seconds), it's a block height, not a timestamp
+    if (val < 946_684_800) return null;
     const ms = val < 1e11 ? val * 1000 : val;
     const d = new Date(ms);
     return isNaN(d.getTime()) ? null : d;
@@ -12,9 +13,10 @@ export function parseDateSafely(val: unknown): Date | null {
   if (typeof val === "string") {
     const trimmed = val.trim();
     if (!trimmed || trimmed === "—") return null;
-    // Check if numeric string (epoch timestamp)
+    // Check if numeric string (epoch timestamp vs block number)
     if (/^\d+$/.test(trimmed)) {
       const num = Number(trimmed);
+      if (num < 946_684_800) return null; // Block height
       const ms = num < 1e11 ? num * 1000 : num;
       const d = new Date(ms);
       return isNaN(d.getTime()) ? null : d;
@@ -35,6 +37,17 @@ export const dt = (iso?: unknown) => {
 export const dateOnly = (iso?: unknown) => {
   const d = parseDateSafely(iso);
   return d ? format(d, "d MMM yyyy") : "—";
+};
+export const formatExpiration = (val?: unknown) => {
+  if (!val) return "—";
+  if (typeof val === "number" || (typeof val === "string" && /^\d+$/.test(String(val).trim()))) {
+    const n = Number(val);
+    if (n < 946_684_800) {
+      return `Block #${n.toLocaleString()}`;
+    }
+  }
+  const d = parseDateSafely(val);
+  return d && d.getFullYear() > 2000 ? format(d, "d MMM yyyy") : "—";
 };
 export const kb = (b: number) => (b > 1e6 ? `${(b / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1e3))} KB`);
 export const pad = (n: number) => String(n).padStart(2, "0");

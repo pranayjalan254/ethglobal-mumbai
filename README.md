@@ -324,6 +324,7 @@ VITE_PRIVY_APP_ID=your_privy_app_id_here
 PRIVY_APP_SECRET=your_privy_app_secret_here
 VITE_ARKIV_ACCESS_KEY=your_arkiv_access_key_here
 VITE_API_URL=http://localhost:8000
+VITE_PROD_API_URL=https://ethglobal-mumbai.onrender.com
 ```
 
 ---

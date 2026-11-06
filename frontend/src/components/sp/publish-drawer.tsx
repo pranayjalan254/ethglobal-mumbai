@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { publishService, type Service } from "@/lib/api";
 import { getArkivExpiration, publishServiceOnChain } from "@/lib/arkiv";
 import { useAuth } from "@/lib/auth";
-import { dateOnly } from "@/lib/format";
+import { dateOnly, formatExpiration } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { CopyButton, Eyebrow, Field, inputCls, Mono, ProgressLine, Segmented } from "./primitives";
 
@@ -138,7 +138,7 @@ export function PublishDrawer({ service, onClose }: { service: Service | null; o
                   <CopyButton value={result.tx_ref} />
                 </dd>
               </div>
-              <div><dt className="eyebrow">Expires</dt><dd>{dateOnly(result.expires_at)}</dd></div>
+              <div><dt className="eyebrow">Expires</dt><dd>{formatExpiration(result.expires_at)}</dd></div>
             </dl>
           )}
           {step === 3 && <Button variant="outline" className="w-full" onClick={close}>Done</Button>}
