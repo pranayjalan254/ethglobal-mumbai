@@ -1,0 +1,18 @@
+{
+  "0x5d8d26cbea05632abf3a3cf87e1f3806ad34de77": [
+    {
+      "name": "skills.txt",
+      "swarmRef": "d09038a6357afeec09ed758d20a877ab6be4f8bcb4db96e02534ee8aed37d6f7"
+    },
+    {
+      "name": "Pasted text(20261102-152334).txt",
+      "swarmRef": "d09038a6357afeec09ed758d20a877ab6be4f8bcb4db96e02534ee8aed37d6f7"
+    }
+  ],
+  "default": [
+    {
+      "name": "Pasted text(20261102-152334).txt",
+      "swarmRef": "d09038a6357afeec09ed758d20a877ab6be4f8bcb4db96e02534ee8aed37d6f7"
+    }
+  ]
+}

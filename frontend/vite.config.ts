@@ -13,6 +13,14 @@ export default defineConfig({
     server: { entry: "server" },
   },
   vite: {
+    server: {
+      proxy: {
+        "/api": {
+          target: "http://localhost:8000",
+          changeOrigin: true,
+        },
+      },
+    },
     build: {
       rollupOptions: {
         external: ["@stripe/stripe-js"],

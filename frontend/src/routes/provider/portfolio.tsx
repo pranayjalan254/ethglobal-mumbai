@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { autoLinkSwarmDocument, listMyServices, type SwarmFile } from "@/lib/api";
+import { API_BASE_URL, autoLinkSwarmDocument, listMyServices, type SwarmFile } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { uploadToSwarm } from "@/lib/swarm";
 import { kb, shortHash } from "@/lib/format";
@@ -18,18 +18,27 @@ function loadSavedFiles(): SwarmFile[] {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const seen = new Set<string>();
+        const cleaned = parsed.filter((x: SwarmFile) => {
+          if (!x || !x.name) return false;
+          // Strip any legacy dummy/mock file
+          if (x.name === "credentials-aws.pdf" || x.swarmRef?.startsWith("96bfa8a3")) return false;
+          const key = `${x.name}_${x.swarmRef}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        if (cleaned.length !== parsed.length) {
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned));
+          } catch {}
+        }
+        return cleaned;
+      }
     }
   } catch {}
-  return [
-    {
-      id: "f1",
-      name: "credentials-aws.pdf",
-      size: 412_000,
-      swarmRef: "96bfa8a3683f12445e999c104cf2ec700ab2f22b7a957d90d7003ffea3dc10b6",
-      status: "linked",
-    },
-  ];
+  return [];
 }
 
 function Portfolio() {
@@ -40,17 +49,17 @@ function Portfolio() {
 
   // Sync with provider's active Arkiv service documents so refresh preserves on-chain links
   useEffect(() => {
-    if (!walletAddress) return;
-    listMyServices(walletAddress)
+    const owner = walletAddress || "0x5d8d26cbea05632abf3a3cf87e1f3806ad34de77";
+    listMyServices(owner)
       .then((services) => {
         const foundDocs: SwarmFile[] = [];
         for (const s of services) {
           for (const d of s.provider?.documents || []) {
-            if (d.swarmRef) {
+            if (d.swarmRef && !d.swarmRef.startsWith("96bfa8a3") && d.name !== "credentials-aws.pdf") {
               foundDocs.push({
-                id: `doc_${d.swarmRef.slice(0, 10)}`,
-                name: d.name || "Verified Portfolio & Credentials",
-                size: 320_000,
+                id: `doc_${d.swarmRef.slice(0, 10)}_${encodeURIComponent(d.name)}`,
+                name: d.name || "Portfolio Document",
+                size: 90_000,
                 swarmRef: d.swarmRef,
                 status: "linked",
               });
@@ -59,10 +68,26 @@ function Portfolio() {
         }
         if (foundDocs.length > 0) {
           setFiles((prev) => {
-            const existing = new Set(prev.map((x) => x.swarmRef));
-            const fresh = foundDocs.filter((x) => !existing.has(x.swarmRef));
-            if (fresh.length === 0) return prev;
-            const merged = [...fresh, ...prev];
+            const byKey = new Map<string, SwarmFile>();
+            // Keep all current files first (preserving real names and sizes), purge dummy
+            for (const f of prev) {
+              if (
+                f.swarmRef &&
+                f.swarmRef !== "upload_failed" &&
+                !f.swarmRef.startsWith("96bfa8a3") &&
+                f.name !== "credentials-aws.pdf"
+              ) {
+                byKey.set(`${f.name}_${f.swarmRef}`, f);
+              }
+            }
+            // Add any newly discovered docs from backend ONLY if not already present
+            for (const f of foundDocs) {
+              const k = `${f.name}_${f.swarmRef}`;
+              if (!byKey.has(k)) {
+                byKey.set(k, f);
+              }
+            }
+            const merged = Array.from(byKey.values());
             try {
               localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
             } catch {}
@@ -82,25 +107,47 @@ function Portfolio() {
       try {
         const { reference } = await uploadToSwarm(file);
 
-        // Automatically link to the provider's active Arkiv entity
-        await autoLinkSwarmDocument(walletAddress || "", file.name, reference);
+        // Automatically link to all active services and Arkiv entity
+        await autoLinkSwarmDocument(walletAddress || "0x5d8d26cbea05632abf3a3cf87e1f3806ad34de77", file.name, reference);
 
-        const updatedFile: SwarmFile = { id, name: file.name, size: file.size, swarmRef: reference, status: "linked" };
+        const updatedFile: SwarmFile = {
+          id: `file_${reference.slice(0, 10)}_${Date.now()}`,
+          name: file.name,
+          size: file.size,
+          swarmRef: reference,
+          status: "linked",
+        };
 
         setFiles((prev) => {
-          const next = prev.map((x) => (x.id === id ? updatedFile : x));
+          // Replace uploading temp placeholder by id, keeping ALL previous files intact
+          const withoutTemp = prev.filter((x) => x.id !== id);
+          const withoutDup = withoutTemp.filter(
+            (x) => !(x.name === file.name && x.swarmRef === reference)
+          );
+          const next = [updatedFile, ...withoutDup];
           try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
           } catch {}
           return next;
         });
 
-        toast.success(`"${file.name}" stored on Swarm & linked to your Arkiv listing!`);
+        toast.success(`"${file.name}" stored on Swarm & attached to all your services!`);
       } catch (err: any) {
         console.error("Swarm upload error:", err);
         setFiles((f) => f.map((x) => (x.id === id ? { ...x, status: "stored", swarmRef: "upload_failed" } : x)));
       }
     }
+  }
+
+  function removeFile(fileId: string) {
+    setFiles((prev) => {
+      const next = prev.filter((x) => x.id !== fileId);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    toast("File removed from portfolio");
   }
 
   return (
@@ -154,22 +201,22 @@ function Portfolio() {
                   ) : (
                     <span className="inline-flex items-center gap-2">
                       <a
-                        href={`/api/swarm/${f.swarmRef.replace(/^0x/, "")}`}
+                        href={`https://gateway.ethswarm.org/bzz/${f.swarmRef.replace(/^bzz:\/\//, "").replace(/^0x/, "")}`}
                         target="_blank"
                         rel="noreferrer"
                         className="text-accent underline hover:opacity-80 font-mono text-xs"
-                        title="View file preview"
+                        title="Open on Swarm Gateway"
                       >
-                        bzz://{shortHash(f.swarmRef.replace(/^0x/, ""), 6)}
+                        bzz://{shortHash(f.swarmRef.replace(/^bzz:\/\//, "").replace(/^0x/, ""), 6)}
                       </a>
                       <a
-                        href={`https://api.gateway.ethswarm.org/bzz/${f.swarmRef.replace(/^0x/, "")}`}
+                        href={`${API_BASE_URL}/api/swarm/${f.swarmRef.replace(/^bzz:\/\//, "").replace(/^0x/, "")}`}
                         target="_blank"
                         rel="noreferrer"
                         className="text-[11px] text-ink-muted underline hover:text-ink"
-                        title="Open on Swarm Gateway"
+                        title="Direct local retrieval"
                       >
-                        [gateway]
+                        [direct]
                       </a>
                       <CopyButton value={f.swarmRef} />
                     </span>
@@ -186,6 +233,23 @@ function Portfolio() {
                   ) : (
                     <Status tone="accent">Stored on Swarm</Status>
                   ),
+              },
+              {
+                key: "act",
+                header: "",
+                render: (f) => (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeFile(f.id);
+                    }}
+                    className="text-xs text-ink-muted hover:text-danger underline"
+                    title="Remove document"
+                  >
+                    remove
+                  </button>
+                ),
               },
             ]}
           />

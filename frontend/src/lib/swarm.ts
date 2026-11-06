@@ -51,15 +51,19 @@ export async function uploadToSwarm(fileOrData: File | string): Promise<SwarmUpl
     console.warn("[SlotPay] Swarm public gateway network notice:", err);
   }
 
-  // 2. Sync file with local backend storage
+  // 2. Sync file with local backend storage (and persist with live reference)
   let localReference = liveReference;
   try {
+    const headers: Record<string, string> = {
+      "x-filename": filename,
+      "content-type": contentType,
+    };
+    if (liveReference) {
+      headers["x-swarm-ref"] = liveReference;
+    }
     const backendRes = await fetch(`${API_BASE_URL}/api/swarm/upload`, {
       method: "POST",
-      headers: {
-        "x-filename": filename,
-        "content-type": contentType,
-      },
+      headers,
       body: fileOrData,
     });
 

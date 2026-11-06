@@ -148,6 +148,36 @@ def get_service(service_id: str) -> dict:
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Service with id '{service_id}' not found.",
         )
+
+    # Ensure provider's uploaded Swarm documents are always attached
+    p_wallet = svc.get("provider", {}).get("wallet", "")
+    owner_docs = service_store.get_documents_for_owner(p_wallet) if p_wallet else []
+    if not owner_docs:
+        owner_docs = service_store.get_all_documents()
+
+    if owner_docs:
+        existing_docs = svc.get("provider", {}).setdefault("documents", [])
+        for d in owner_docs:
+            if not any(ed.get("swarmRef") == d.get("swarmRef") for ed in existing_docs):
+                existing_docs.append(d)
+        if existing_docs and not svc.get("swarmRef"):
+            svc["swarmRef"] = existing_docs[0]["swarmRef"]
+
+
+    # Ensure provider's uploaded Swarm documents are always attached
+    p_wallet = svc.get("provider", {}).get("wallet", "")
+    owner_docs = service_store.get_documents_for_owner(p_wallet) if p_wallet else []
+    if not owner_docs:
+        owner_docs = service_store.get_all_documents()
+
+    if owner_docs:
+        existing_docs = svc.get("provider", {}).setdefault("documents", [])
+        for d in owner_docs:
+            if not any(ed.get("swarmRef") == d.get("swarmRef") for ed in existing_docs):
+                existing_docs.append(d)
+        if existing_docs and not svc.get("swarmRef"):
+            svc["swarmRef"] = existing_docs[0]["swarmRef"]
+
     return svc
 
 

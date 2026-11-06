@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { getService, getServiceSlots, type Slot } from "@/lib/api";
+import { getService, getServiceSlots, API_BASE_URL, type Slot } from "@/lib/api";
 import { dateOnly, money, parseDateSafely, shortHash } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { CopyButton, Empty, ErrorBlock, Eyebrow, Mono, ProgressLine, Tag, TypeTag } from "@/components/sp/primitives";
@@ -13,7 +13,12 @@ export const Route = createFileRoute("/buyer/marketplace/$id")({ component: Deta
 
 function Detail() {
   const { id } = Route.useParams();
-  const svc = useQuery({ queryKey: ["service", id], queryFn: () => getService(id) });
+  const svc = useQuery({
+    queryKey: ["service", id],
+    queryFn: () => getService(id),
+    refetchOnMount: true,
+    staleTime: 0,
+  });
   const slots = useQuery({ queryKey: ["slots", id], queryFn: () => getServiceSlots(id) });
   const [sel, setSel] = useState<Slot | null>(null);
   const [checkout, setCheckout] = useState<Slot | null>(null);
@@ -57,22 +62,22 @@ function Detail() {
                     <span>{d.name}</span>
                     <span className="inline-flex items-center gap-2">
                       <a
-                        href={`/api/swarm/${d.swarmRef.replace(/^0x/, "")}`}
+                        href={`https://gateway.ethswarm.org/bzz/${d.swarmRef.replace(/^bzz:\/\//, "").replace(/^0x/, "")}`}
                         target="_blank"
                         rel="noreferrer"
                         className="text-xs text-accent underline hover:opacity-80 font-mono"
-                        title="View document content"
+                        title="Open on Swarm Gateway"
                       >
-                        bzz://{shortHash(d.swarmRef.replace(/^0x/, ""), 6)}
+                        bzz://{shortHash(d.swarmRef.replace(/^bzz:\/\//, "").replace(/^0x/, ""), 6)}
                       </a>
                       <a
-                        href={`https://api.gateway.ethswarm.org/bzz/${d.swarmRef.replace(/^0x/, "")}`}
+                        href={`${API_BASE_URL}/api/swarm/${d.swarmRef.replace(/^bzz:\/\//, "").replace(/^0x/, "")}`}
                         target="_blank"
                         rel="noreferrer"
                         className="text-[11px] text-ink-muted underline hover:text-ink"
-                        title="Verify on Swarm Gateway"
+                        title="Direct local retrieval"
                       >
-                        [gateway]
+                        [direct]
                       </a>
                       <CopyButton value={d.swarmRef} />
                     </span>

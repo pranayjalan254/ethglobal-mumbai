@@ -193,9 +193,25 @@ export async function http<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function arkivRecordToService(rec: ArkivServiceRecord): Service {
   const documents: { name: string; swarmRef: string }[] = [];
-  if (rec.swarmRef) {
+
+  // Look up real document filename for rec.swarmRef from local storage if available
+  let matchedName: string | undefined;
+  if (typeof window !== "undefined") {
+    try {
+      const saved = localStorage.getItem("slotpay_portfolio_files");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const match = parsed.find((p: { swarmRef?: string; name?: string }) => p.swarmRef === rec.swarmRef);
+          if (match?.name) matchedName = match.name;
+        }
+      }
+    } catch {}
+  }
+
+  if (rec.swarmRef && !rec.swarmRef.startsWith("96bfa8a3")) {
     documents.push({
-      name: "Verified Portfolio & Credentials",
+      name: matchedName || "Portfolio Document",
       swarmRef: rec.swarmRef,
     });
   }
@@ -211,10 +227,12 @@ export function arkivRecordToService(rec: ArkivServiceRecord): Service {
             if (
               item.swarmRef &&
               item.swarmRef !== "upload_failed" &&
+              !item.swarmRef.startsWith("96bfa8a3") &&
+              item.name !== "credentials-aws.pdf" &&
               !documents.some((d) => d.swarmRef === item.swarmRef)
             ) {
               documents.push({
-                name: item.name || "Verified Portfolio & Credentials",
+                name: item.name || "Portfolio Document",
                 swarmRef: item.swarmRef,
               });
             }
@@ -325,43 +343,101 @@ export async function listServices(query: ServiceQuery = {}): Promise<ServicesLi
 
 /** GET /api/services/{id} or direct Arkiv entity fetch */
 export async function getService(id: string): Promise<Service> {
-  // If id is an Arkiv entity key (0x...), query Arkiv directly
+  let service: Service | null = null;
+
+  // 1. If id is an Arkiv entity key (0x...), query Arkiv directly
   if (id.startsWith("0x")) {
     try {
       const arkivRec = await getArkivService(id);
       if (arkivRec) {
-        return arkivRecordToService(arkivRec);
+        service = arkivRecordToService(arkivRec);
       }
     } catch (err) {
       console.warn("[SlotPay] Arkiv getEntity fetch notice:", err);
     }
   }
 
+  // 2. Fetch backend service to enrich with server-persisted Swarm documents & owner data
   try {
-    return await http<Service>(`/api/services/${id}`);
+    const backendSvc = await http<Service>(`/api/services/${id}`);
+    if (backendSvc) {
+      if (!service) {
+        service = backendSvc;
+      } else {
+        const docMap = new Map<string, { name: string; swarmRef: string }>();
+        for (const d of service.provider?.documents || []) {
+          if (d.swarmRef && !d.swarmRef.startsWith("96bfa8a3") && d.name !== "credentials-aws.pdf") {
+            docMap.set(d.swarmRef, d);
+          }
+        }
+        for (const d of backendSvc.provider?.documents || []) {
+          if (d.swarmRef && !d.swarmRef.startsWith("96bfa8a3") && d.name !== "credentials-aws.pdf") {
+            if (!docMap.has(d.swarmRef)) {
+              docMap.set(d.swarmRef, d);
+            }
+          }
+        }
+        service.provider.documents = Array.from(docMap.values());
+        if (!service.swarmRef && backendSvc.swarmRef) {
+          service.swarmRef = backendSvc.swarmRef;
+        }
+      }
+    }
   } catch (_err) {
-    if (id.startsWith("0x")) {
-      return {
-        id,
-        entityKey: id,
-        title: "1-on-1 Consultation",
-        category: "Consultation",
-        skills: ["Consultation", "Advisory", "Code Review"],
-        description: "Open availability published directly to Arkiv Rabdi testnet.",
-        price: 25.0,
-        currency: "HBAR",
-        durationMin: 60,
-        provider: {
-          id: `p_${id.slice(2, 10)}`,
-          name: "Verified Provider",
-          type: "human",
-          headline: "Specialist · Published on Arkiv Rabdi",
-          bio: "Verified Provider on OASIS Protocol",
-          wallet: id,
-          rating: 5.0,
-          reviews: 1,
-          credentials: ["Arkiv Verified Provider"],
-          documents: (() => {
+    // backend lookup optional
+  }
+
+  // 3. Fallback for client-side local cache if documents are still empty
+  if (service) {
+    if (service.provider.documents.length === 0 && typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem("slotpay_portfolio_files");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            for (const x of parsed) {
+              if (
+                x.swarmRef &&
+                x.swarmRef !== "upload_failed" &&
+                !x.swarmRef.startsWith("96bfa8a3") &&
+                x.name !== "credentials-aws.pdf" &&
+                !service.provider.documents.some((d) => d.swarmRef === x.swarmRef)
+              ) {
+                service.provider.documents.push({
+                  name: x.name || "Portfolio Document",
+                  swarmRef: x.swarmRef,
+                });
+              }
+            }
+          }
+        }
+      } catch {}
+    }
+    return service;
+  }
+
+  if (id.startsWith("0x")) {
+    return {
+      id,
+      entityKey: id,
+      title: "1-on-1 Consultation",
+      category: "Consultation",
+      skills: ["Consultation", "Advisory", "Code Review"],
+      description: "Open availability published directly to Arkiv Rabdi testnet.",
+      price: 25.0,
+      currency: "HBAR",
+      durationMin: 60,
+      provider: {
+        id: `p_${id.slice(2, 10)}`,
+        name: "Verified Provider",
+        type: "human",
+        headline: "Specialist · Published on Arkiv Rabdi",
+        bio: "Verified Provider on OASIS Protocol",
+        wallet: id,
+        rating: 5.0,
+        reviews: 1,
+        credentials: ["Arkiv Verified Provider"],
+        documents: (() => {
           if (typeof window === "undefined") return [];
           try {
             const raw = localStorage.getItem("slotpay_portfolio_files");
@@ -369,9 +445,9 @@ export async function getService(id: string): Promise<Service> {
               const parsed = JSON.parse(raw);
               if (Array.isArray(parsed)) {
                 return parsed
-                  .filter((x) => x.swarmRef && x.swarmRef !== "upload_failed")
+                  .filter((x) => x.swarmRef && x.swarmRef !== "upload_failed" && !x.swarmRef.startsWith("96bfa8a3") && x.name !== "credentials-aws.pdf")
                   .map((x) => ({
-                    name: x.name || "Verified Portfolio Document",
+                    name: x.name || "Portfolio Document",
                     swarmRef: x.swarmRef,
                   }));
               }
@@ -379,14 +455,14 @@ export async function getService(id: string): Promise<Service> {
           } catch {}
           return [];
         })(),
-        },
-        status: "published",
-        nextSlot: new Date().toISOString(),
-        location: "remote",
-      };
-    }
-    throw new Error("Service not found");
+      },
+      status: "published",
+      nextSlot: new Date().toISOString(),
+      location: "remote",
+    };
   }
+
+  throw new Error("Service not found");
 }
 
 /** GET services owned by provider wallet directly from Arkiv Rabdi testnet with FastAPI fallback */
@@ -428,7 +504,11 @@ export async function listMyServices(owner: string): Promise<Service[]> {
 export type ServiceInput = Pick<
   Service,
   "title" | "category" | "skills" | "description" | "price" | "currency" | "durationMin"
-> & { providerType: ProviderType; swarmRef?: string | undefined };
+> & {
+  providerType: ProviderType;
+  swarmRef?: string | undefined;
+  documents?: { name: string; swarmRef: string }[] | undefined;
+};
 
 /** POST /api/services */
 export async function createService(owner: string, input: ServiceInput): Promise<Service> {

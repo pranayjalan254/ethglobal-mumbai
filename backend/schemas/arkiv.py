@@ -14,7 +14,7 @@ Under the Option B "Vanish / Burn" architecture:
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, List, Optional
 from pydantic import BaseModel, Field
 
 
@@ -62,7 +62,7 @@ class ArkivQueryFilter(BaseModel):
         None,
         description="Category: Engineering, Security, Design, Legal, Research, or Finance",
     )
-    skills: list[str] = Field(
+    skills: List[str] = Field(
         default_factory=list,
         description="List of required technical skills or topics (e.g. ['Python', 'FastAPI'])",
     )
@@ -171,7 +171,7 @@ class ArkivServiceEntity(BaseModel):
     provider_address: str = Field(..., description="Provider wallet address / Hedera Account ID")
     title: str = Field(..., description="Service title")
     category: str = Field(..., description="Category (Engineering, Security, Design, Legal, etc.)")
-    skills: list[str] = Field(default_factory=list, description="Searchable skill tags (indexed)")
+    skills: List[str] = Field(default_factory=list, description="Searchable skill tags (indexed)")
     price: float = Field(..., ge=0, description="Rate per session")
     currency: Currency = Field(Currency.HBAR, description="Settlement token: HBAR or USDC")
     duration_min: int = Field(..., gt=0, description="Duration in minutes (e.g. 30, 60, 90)")

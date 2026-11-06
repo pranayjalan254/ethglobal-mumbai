@@ -5,7 +5,7 @@ Parsed service request, agent decisions, and x402 booking schemas.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional
+from typing import List, Optional
 from pydantic import BaseModel, Field
 
 from schemas.arkiv import ArkivQueryFilter, Currency
@@ -58,7 +58,7 @@ class ParsedServiceRequest(BaseModel):
         True,
         description="True if enough details exist to run the Arkiv search; False if clarification needed",
     )
-    missing_fields: list[str] = Field(
+    missing_fields: List[str] = Field(
         default_factory=list,
         description="List of helpful missing fields if query was incomplete or ambiguous",
     )

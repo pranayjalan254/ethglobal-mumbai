@@ -5,7 +5,7 @@ Matches the SlotPay frontend TypeScript interfaces.
 
 from __future__ import annotations
 
-from typing import Any, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -34,8 +34,8 @@ class ProviderSchema(BaseModel):
     wallet: str
     rating: float = 5.0
     reviews: int = 0
-    credentials: list[str] = Field(default_factory=list)
-    documents: list[SwarmDoc] = Field(default_factory=list)
+    credentials: List[str] = Field(default_factory=list)
+    documents: List[SwarmDoc] = Field(default_factory=list)
 
 
 class ServiceSchema(BaseModel):
@@ -43,7 +43,7 @@ class ServiceSchema(BaseModel):
     id: str
     title: str
     category: str
-    skills: list[str] = Field(default_factory=list)
+    skills: List[str] = Field(default_factory=list)
     description: str
     price: float
     currency: Currency = "HBAR"
@@ -60,7 +60,7 @@ class ServiceInput(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
     title: str
     category: str
-    skills: list[str] = Field(default_factory=list)
+    skills: List[str] = Field(default_factory=list)
     description: str = ""
     price: float
     currency: Currency = "HBAR"
@@ -68,6 +68,7 @@ class ServiceInput(BaseModel):
     providerType: ProviderType = Field("human", alias="providerType")
     owner: Optional[str] = None
     swarmRef: Optional[str] = Field(None, alias="swarmRef")
+    documents: Optional[List[SwarmDoc]] = None
 
 
 class LinkSwarmInput(BaseModel):
@@ -116,7 +117,7 @@ class ClaimSlotResponse(BaseModel):
 
 
 class AvailabilityPublishInput(BaseModel):
-    cells: list[str]
+    cells: List[str]
     owner: Optional[str] = None
     entity_key: Optional[str] = None
     tx_ref: Optional[str] = None
@@ -147,7 +148,7 @@ class BookingCreateInput(BaseModel):
     slotId: Optional[str] = Field(None, alias="slotId")
     buyerWallet: Optional[str] = Field(None, alias="buyerWallet")
     # Also support passing the full service object or slot_id
-    service: Optional[dict[str, Any]] = None
+    service: Optional[Dict[str, Any]] = None
     slot_id: Optional[str] = None
 
 
@@ -162,7 +163,7 @@ class BookingConfirmInput(BaseModel):
     slotStart: Optional[str] = Field(None, alias="slotStart")
     txIdOverride: Optional[str] = Field(None, alias="txIdOverride")
     txId: Optional[str] = Field(None, alias="txId")
-    service: Optional[dict[str, Any]] = None
+    service: Optional[Dict[str, Any]] = None
     buyer: Optional[str] = "You"
 
 
@@ -206,7 +207,7 @@ class AgentStepSchema(BaseModel):
     index: int
     title: str = ""
     state: StepState
-    detail: Optional[dict[str, Any]] = None
+    detail: Optional[Dict[str, Any]] = None
 
 
 class AgentChatRequest(BaseModel):

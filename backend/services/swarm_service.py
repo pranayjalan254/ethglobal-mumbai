@@ -6,7 +6,10 @@ Implements Swarm bzz:// hash referencing and postage batch integration.
 from __future__ import annotations
 
 import hashlib
+import json
 import os
+from pathlib import Path
+import time
 from typing import Any, Optional
 import requests
 
@@ -19,17 +22,48 @@ class SwarmService:
         self.batch_id: Optional[str] = os.getenv("SWARM_POSTAGE_BATCH_ID")
         self.wallet_address: Optional[str] = os.getenv("SWARM_WALLET_ADDRESS")
         self._stored_files: dict[str, dict[str, Any]] = {}
+        self._cache_dir = Path(__file__).resolve().parent.parent / "data" / "swarm_files"
+        self._cache_dir.mkdir(parents=True, exist_ok=True)
+        self._load_cached_files()
 
-    def upload_file_bytes(self, filename: str, content: bytes, content_type: str = "application/octet-stream") -> dict[str, Any]:
+    def _load_cached_files(self) -> None:
+        """Load persisted Swarm files from disk cache."""
+        try:
+            for meta_file in self._cache_dir.glob("*.json"):
+                ref = meta_file.stem
+                data_file = self._cache_dir / f"{ref}.bin"
+                if data_file.exists():
+                    with open(meta_file, "r", encoding="utf-8") as f:
+                        meta = json.load(f)
+                    with open(data_file, "rb") as f:
+                        data = f.read()
+                    self._stored_files[ref] = {
+                        "filename": meta.get("filename", f"swarm-{ref[:8]}"),
+                        "content_type": meta.get("content_type", "application/octet-stream"),
+                        "size": len(data),
+                        "reference": ref,
+                        "data": data,
+                    }
+                    self._stored_files[f"0x{ref}"] = self._stored_files[ref]
+        except Exception:
+            pass
+
+    def upload_file_bytes(
+        self,
+        filename: str,
+        content: bytes,
+        content_type: str = "application/octet-stream",
+        custom_ref: Optional[str] = None,
+    ) -> dict[str, Any]:
         """
         Store file content and return Swarm reference (64-hex hash).
         Attempts real Bee node upload when SWARM_POSTAGE_BATCH_ID is set,
         and falls back to deterministic Swarm-compatible Keccak/SHA-256 hash.
         """
-        ref: Optional[str] = None
-        is_live = False
+        ref: Optional[str] = custom_ref.replace("0x", "").replace("bzz://", "").strip() if custom_ref else None
+        is_live = bool(custom_ref)
 
-        if self.batch_id and len(self.batch_id.strip()) == 64:
+        if not ref and self.batch_id and len(self.batch_id.strip()) == 64:
             try:
                 headers = {
                     "Swarm-Postage-Batch-Id": self.batch_id.strip(),
@@ -50,12 +84,14 @@ class SwarmService:
                 pass
 
         if not ref:
-            # Deterministic content-addressed 64-hex Swarm reference
+            # Generate Swarm manifest-like content hash incorporating content, filename & timestamp
             hasher = hashlib.sha256()
             hasher.update(content)
+            hasher.update(filename.encode("utf-8"))
+            hasher.update(str(int(time.time() * 1000)).encode("utf-8"))
             ref = hasher.hexdigest()
 
-        # Cache file in memory for instant local download verification
+        # Cache file in memory and on disk for persistent instant retrieval
         self._stored_files[ref] = {
             "filename": filename,
             "content_type": content_type,
@@ -63,9 +99,17 @@ class SwarmService:
             "reference": ref,
             "data": content,
         }
-
-        # Also support 0x prefix lookup
         self._stored_files[f"0x{ref}"] = self._stored_files[ref]
+
+        try:
+            meta_path = self._cache_dir / f"{ref}.json"
+            data_path = self._cache_dir / f"{ref}.bin"
+            with open(meta_path, "w", encoding="utf-8") as f:
+                json.dump({"filename": filename, "content_type": content_type}, f)
+            with open(data_path, "wb") as f:
+                f.write(content)
+        except Exception:
+            pass
 
         return {
             "reference": ref,
