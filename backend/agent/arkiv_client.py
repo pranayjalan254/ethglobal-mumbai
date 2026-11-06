@@ -23,6 +23,7 @@ from schemas.arkiv import ArkivQueryFilter, ProviderType
 logger = logging.getLogger(__name__)
 
 ARKIV_SCHEMA_NAME = "slotpay.services.v1"
+ARKIV_AVAILABILITY_SCHEMA = "slotpay.availability.v1"
 
 
 def build_arkiv_query_string(f: ArkivQueryFilter) -> str:
@@ -89,15 +90,52 @@ class ArkivClient:
         rpc_results = self._call_arkiv_rpc(query_str)
         if rpc_results:
             logger.info("Arkiv RPC returned %d live entities from Rabdi testnet.", len(rpc_results))
-            return rpc_results
+            return [s for s in rpc_results if self._matches_filter(s, query_filter)]
 
         # If no service listings exist, discover open providers from live Arkiv availability entities on Rabdi testnet
         avail_results = self._call_arkiv_rpc("arkiv.schema = str('slotpay.availability.v1')")
         if avail_results:
             logger.info("Arkiv RPC discovered %d live availability entities on Rabdi.", len(avail_results))
-            return avail_results
+            return [s for s in avail_results if self._matches_filter(s, query_filter)]
 
         return []
+
+    def _matches_filter(self, svc: dict[str, Any], f: ArkivQueryFilter) -> bool:
+        """Filter a parsed service record against an ArkivQueryFilter."""
+        try:
+            price = float(svc.get("price", 0.0))
+        except (ValueError, TypeError):
+            price = 0.0
+
+        if f.max_price is not None and price > f.max_price:
+            return False
+        if f.min_price is not None and price < f.min_price:
+            return False
+
+        p_type = svc.get("provider_type") or svc.get("provider", {}).get("type")
+        if f.provider_type and f.provider_type != ProviderType.ANY:
+            if p_type != f.provider_type.value:
+                return False
+
+        p_name = (
+            svc.get("provider_name")
+            or (svc.get("provider", {}).get("name") if isinstance(svc.get("provider"), dict) else None)
+            or svc.get("providerName")
+            or ""
+        )
+        if f.provider_name:
+            if f.provider_name.lower() not in p_name.lower():
+                return False
+
+        dur = svc.get("duration_min") or svc.get("durationMin")
+        if f.duration_min is not None and dur is not None:
+            try:
+                if abs(int(dur) - f.duration_min) > 30:
+                    return False
+            except (ValueError, TypeError):
+                pass
+
+        return True
 
     def _parse_rpc_entity(self, rpc_entity: dict[str, Any]) -> dict[str, Any]:
         """Convert Arkiv RpcEntity with attributes into normalized service record."""
@@ -114,19 +152,13 @@ class ArkivClient:
                 else:
                     attrs[name] = val
 
-        price = 0.0
+        price = 0.05
         raw_price = attrs.get("price")
         if raw_price is not None:
             try:
                 price = float(raw_price)
             except (ValueError, TypeError):
                 pass
-
-        price = 0.05
-        try:
-            price = float(attrs.get("price", 0.05))
-        except (ValueError, TypeError):
-            pass
 
         rating = 5.0
         raw_rating = attrs.get("rating")
@@ -136,55 +168,62 @@ class ArkivClient:
             except (ValueError, TypeError):
                 pass
 
-        provider_name = attrs.get("providerName") or "Arkiv Provider"
-        provider_type = attrs.get("providerType") or "human"
-        provider_wallet = attrs.get("providerWallet") or rpc_entity.get("owner", "0x0")
-        key = rpc_entity.get("key") or rpc_entity.get("$key") or ""
+        duration = 60
+        raw_dur = attrs.get("durationMin") or attrs.get("duration_min")
+        if raw_dur is not None:
+            try:
+                duration = int(raw_dur)
+            except (ValueError, TypeError):
+                pass
 
+        raw_skills = attrs.get("skills")
+        if isinstance(raw_skills, list):
+            skills_list = [str(s) for s in raw_skills]
+        elif isinstance(raw_skills, str) and raw_skills:
+            skills_list = [s.strip() for s in raw_skills.split(",") if s.strip()]
+        else:
+            skills_list = ["Consultation", "Advisory", "Code Review"]
+
+        provider_name = attrs.get("providerName") or attrs.get("provider_name") or "Arkiv Provider"
+        provider_type = attrs.get("providerType") or attrs.get("provider_type") or "human"
+        provider_wallet = attrs.get("providerWallet") or attrs.get("provider_wallet") or rpc_entity.get("owner", "0x0")
+        key = rpc_entity.get("key") or rpc_entity.get("$key") or ""
+        next_slot = attrs.get("nextSlot") or attrs.get("next_slot") or attrs.get("slotStart") or "2026-11-07T10:00:00Z"
+        expires_at = str(rpc_entity.get("expiresAt", ""))
+        currency = attrs.get("currency") or "USDC"
         schema_name = attrs.get("arkiv.schema", "")
+
         if schema_name == "slotpay.availability.v1" or "dayHour" in attrs:
-            p_name = attrs.get("providerName") or "Arkiv Provider"
-            dur = int(attrs.get("durationMin") or 60)
-            return {
-                "id": key,
-                "entityKey": key,
-                "title": f"1-on-1 Consultation with {p_name}",
-                "category": attrs.get("category") or "Engineering",
-                "skills": ["Consultation", "Advisory", "Code Review"],
-                "provider": {
-                    "id": f"p_{provider_wallet[:8]}",
-                    "name": p_name,
-                    "type": "human",
-                    "headline": "Verified Provider · Published on Arkiv Rabdi",
-                    "bio": f"Open availability published directly to Arkiv Rabdi testnet. Blocks: {attrs.get('dayHour', 'Flexible')}",
-                    "wallet": provider_wallet,
-                    "rating": 5.0,
-                    "reviews": 1,
-                    "credentials": ["Arkiv Verified Provider"],
-                    "documents": [],
-                },
-                "price": 25.0,
-                "currency": "USDC",
-                "durationMin": dur,
-                "description": f"Live availability published on Arkiv Rabdi testnet. Next slot: {attrs.get('nextSlot', 'Available soon')}",
-                "status": "published",
-                "nextSlot": attrs.get("nextSlot") or "2026-11-07T10:00:00Z",
-                "location": "remote",
-                "expiresAt": str(rpc_entity.get("expiresAt", "")),
-            }
+            p_name = provider_name
+            dur = duration
+            headline = "Verified Provider · Published on Arkiv Rabdi"
+            bio = f"Open availability published directly to Arkiv Rabdi testnet. Blocks: {attrs.get('dayHour', 'Flexible')}"
+            title = f"1-on-1 Consultation with {p_name}"
+            desc = attrs.get("description") or f"Live availability published on Arkiv Rabdi testnet. Next slot: {attrs.get('nextSlot', 'Available soon')}"
+        else:
+            p_name = provider_name
+            dur = duration
+            headline = f"{'Human' if provider_type == 'human' else 'AI Agent'} · Published on Arkiv Rabdi"
+            bio = attrs.get("description") or "Verified service provider on Arkiv open network."
+            title = attrs.get("title") or f"1-on-1 Consultation with {p_name}"
+            desc = attrs.get("description") or bio
 
         return {
-            "id": key,
+            "id": key or "svc_arkiv",
             "entityKey": key,
-            "title": attrs.get("title") or "Arkiv Consultation",
+            "entity_key": key,
+            "title": title,
             "category": attrs.get("category") or "Engineering",
             "skills": skills_list,
+            "provider_type": provider_type,
+            "provider_name": p_name,
+            "provider_wallet": provider_wallet,
             "provider": {
                 "id": f"p_{provider_wallet[:8]}",
-                "name": provider_name,
+                "name": p_name,
                 "type": provider_type,
-                "headline": f"{'Human' if provider_type == 'human' else 'AI Agent'} · Published on Arkiv Rabdi",
-                "bio": attrs.get("description") or "Verified service provider on Arkiv open network.",
+                "headline": headline,
+                "bio": bio,
                 "wallet": provider_wallet,
                 "rating": rating,
                 "reviews": 1,
@@ -192,13 +231,19 @@ class ArkivClient:
                 "documents": [],
             },
             "price": price,
-            "currency": attrs.get("currency") or "USDC",
-            "durationMin": duration,
-            "description": attrs.get("description") or "",
+            "currency": currency,
+            "durationMin": dur,
+            "duration_min": dur,
+            "description": desc,
             "status": "published",
-            "nextSlot": attrs.get("nextSlot") or "2026-11-07T10:00:00Z",
+            "rating": rating,
+            "reviews": 1,
+            "nextSlot": next_slot,
+            "next_slot": next_slot,
             "location": "remote",
-            "expiresAt": str(rpc_entity.get("expiresAt", "")),
+            "expiresAt": expires_at,
+            "expires_at": expires_at,
+            "isArkivEntity": True,
         }
 
     def _call_arkiv_rpc(self, query_string: str) -> Optional[list[dict[str, Any]]]:

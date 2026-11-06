@@ -101,10 +101,12 @@ def run_autonomous_demo() -> None:
     print(f"   Discovered Services: {len(state_1.get('discovered_services', []))} listings matching filter.")
     selected_1 = state_1.get("selected_service")
     if selected_1:
-        print(f"   Selected Candidate:  {selected_1['provider_name']} - {selected_1['title']}")
+        p_name = selected_1.get("provider_name") or selected_1.get("provider", {}).get("name", "Provider")
+        p_wallet = selected_1.get("provider_wallet") or selected_1.get("provider", {}).get("wallet", "0x0")
+        print(f"   Selected Candidate:  {p_name} - {selected_1.get('title', 'Service')}")
         print(f"   Provider Rating:     {selected_1.get('rating', 0)} / 5.0 ({selected_1.get('reviews', 0)} reviews)")
-        print(f"   Price:               ${selected_1['price']:.2f} {selected_1['currency']}")
-        print(f"   Wallet:              {selected_1['provider_wallet']}")
+        print(f"   Price:               ${selected_1.get('price', 0.0):.2f} {selected_1.get('currency', 'USDC')}")
+        print(f"   Wallet:              {p_wallet}")
 
     print("\n3. Slot Reservation:")
     slot_1 = state_1.get("selected_slot")
@@ -149,7 +151,8 @@ def run_autonomous_demo() -> None:
     print("\n2. Arkiv Discovery & Price Check:")
     selected_2 = state_2.get("selected_service")
     if selected_2:
-        print(f"   Available Service:   {selected_2['provider_name']} (${selected_2['price']:.2f} USDC)")
+        p_name_2 = selected_2.get("provider_name") or selected_2.get("provider", {}).get("name", "Provider")
+        print(f"   Available Service:   {p_name_2} (${selected_2.get('price', 0.0):.2f} USDC)")
 
     print(f"\n3. Autonomous Payment Decision:")
     if not state_2.get("payment_settled"):

@@ -485,18 +485,57 @@ def compare_and_select(state: QueryParserState) -> dict[str, Any]:
             "steps_executed": steps,
         }
 
+    # Helper extractors for resilient sorting across various service schema formats
+    def _get_price(s: dict[str, Any]) -> float:
+        try:
+            return float(s.get("price", 0.0))
+        except (ValueError, TypeError):
+            return 0.0
+
+    def _get_rating(s: dict[str, Any]) -> float:
+        val = s.get("rating")
+        if val is None and isinstance(s.get("provider"), dict):
+            val = s["provider"].get("rating")
+        try:
+            return float(val) if val is not None else 0.0
+        except (ValueError, TypeError):
+            return 0.0
+
+    def _get_slot(s: dict[str, Any]) -> str:
+        return str(s.get("next_slot") or s.get("nextSlot") or "")
+
     # Ranking logic
     if strategy == SelectionStrategy.LOWEST_PRICE:
-        ranked = sorted(services, key=lambda s: s["price"])
+        ranked = sorted(services, key=_get_price)
     elif strategy == SelectionStrategy.HIGHEST_RATING:
-        ranked = sorted(services, key=lambda s: -s.get("rating", 0))
+        ranked = sorted(services, key=lambda s: -_get_rating(s))
     elif strategy == SelectionStrategy.EARLIEST_SLOT:
-        ranked = sorted(services, key=lambda s: s.get("next_slot", ""))
+        ranked = sorted(services, key=_get_slot)
     else:  # BEST_AVAILABLE: prioritize high rating while within price
-        ranked = sorted(services, key=lambda s: (-s.get("rating", 0), s["price"]))
+        ranked = sorted(services, key=lambda s: (-_get_rating(s), _get_price(s)))
 
-    selected = ranked[0]
-    logger.info("Selected provider %s (%s) for %s USDC", selected["provider_name"], selected["title"], selected["price"])
+    selected = dict(ranked[0])
+    provider_name = (
+        selected.get("provider_name")
+        or (selected.get("provider", {}).get("name") if isinstance(selected.get("provider"), dict) else None)
+        or selected.get("providerName")
+        or "Arkiv Provider"
+    )
+    provider_wallet = (
+        selected.get("provider_wallet")
+        or (selected.get("provider", {}).get("wallet") if isinstance(selected.get("provider"), dict) else None)
+        or "0x0"
+    )
+    # Ensure canonical normalized keys exist on selected dict
+    selected["provider_name"] = provider_name
+    selected["provider_wallet"] = provider_wallet
+
+    logger.info(
+        "Selected provider %s (%s) for %s USDC",
+        provider_name,
+        selected.get("title", "Consultation"),
+        selected.get("price", 0.0),
+    )
 
     return {
         "selected_service": selected,
@@ -513,10 +552,13 @@ def claim_slot(state: QueryParserState) -> dict[str, Any]:
     if not selected:
         return {"selected_slot": None, "steps_executed": steps}
 
+    service_id = str(selected.get("id") or selected.get("entityKey") or "srv_arkiv")
+    slot_time = str(selected.get("next_slot") or selected.get("nextSlot") or "2026-11-06T10:00:00Z")
+
     slot = {
-        "claim_id": f"clm_{abs(hash(selected['id'] + selected.get('next_slot', ''))) % 1000000000:09x}",
-        "service_id": selected["id"],
-        "slot_time": selected.get("next_slot", "2026-11-06T10:00:00Z"),
+        "claim_id": f"clm_{abs(hash(service_id + slot_time)) % 1000000000:09x}",
+        "service_id": service_id,
+        "slot_time": slot_time,
         "expires_at_sec": 300,
     }
 
@@ -546,13 +588,15 @@ def execute_x402_payment(state: QueryParserState) -> dict[str, Any]:
 
     action = parsed.agent_decision.action
     approved_budget = parsed.agent_decision.auto_approve_budget
-    amount = float(selected["price"])
+    amount = float(selected.get("price", 0.0))
     currency = selected.get("currency", "USDC")
-    provider_wallet = selected.get("provider_wallet", selected.get("provider", {}).get("wallet", "0x0"))
+    provider_wallet = selected.get("provider_wallet") or (
+        selected.get("provider", {}).get("wallet") if isinstance(selected.get("provider"), dict) else "0x0"
+    )
 
     # Generate HTTP 402 challenge
     challenge = hedera_x402_engine.create_402_challenge(
-        service_id=selected["id"],
+        service_id=str(selected.get("id") or selected.get("entityKey") or "srv_arkiv"),
         amount=amount,
         currency=currency,
         provider_wallet=provider_wallet,
