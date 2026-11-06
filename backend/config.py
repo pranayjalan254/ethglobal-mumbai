@@ -47,7 +47,7 @@ CATEGORIES: list[str] = [
     "Finance",
 ]
 
-DEFAULT_CURRENCY: str = "USDC"
+DEFAULT_CURRENCY: str = "HBAR"
 
 # Arkiv settings
 ARKIV_RABDI_RPC: str = os.getenv("ARKIV_RABDI_RPC", "https://rpc.rabdi.db-chain.testnet.arkiv.network")

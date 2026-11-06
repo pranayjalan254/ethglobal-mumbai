@@ -27,7 +27,7 @@ export function parseDateSafely(val: unknown): Date | null {
 
 export const shortAddr = (a?: string | null) => (a ? `${a.slice(0, 6)}...${a.slice(-4)}` : "");
 export const shortHash = (h: string, n = 10) => (h.length > n * 2 ? `${h.slice(0, n)}...${h.slice(-6)}` : h);
-export const money = (n: number, c = "USDC") => `${n.toFixed(2)} ${c}`;
+export const money = (n: number, c = "HBAR") => `${n.toFixed(2)} ${c}`;
 export const dt = (iso?: unknown) => {
   const d = parseDateSafely(iso);
   return d ? format(d, "EEE d MMM, HH:mm") : "—";

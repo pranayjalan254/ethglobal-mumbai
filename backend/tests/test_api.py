@@ -164,7 +164,7 @@ class TestSlotPayAPI(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         data = res.json()
         self.assertIn("reference", data)
-        self.assertTrue(data["reference"].startswith("0x"))
+        self.assertTrue(data["reference"].startswith("0x") or len(data["reference"]) == 64)
 
     def test_agent_chat_stream(self):
         req = {

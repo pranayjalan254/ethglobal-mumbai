@@ -155,7 +155,7 @@ function Agent() {
             <label className="inline-flex items-center gap-2 text-[12.5px]">
               <span className="eyebrow">Spending limit</span>
               <input type="number" min={0.01} step="0.1" value={limit} onChange={(e) => setLimit(Number(e.target.value))} className="mono w-16 border-b border-hairline bg-transparent px-1 py-0.5 text-right outline-none focus:border-ink" />
-              <span className="mono text-ink-muted">USDC per booking</span>
+              <span className="mono text-ink-muted">HBAR per booking</span>
             </label>
             <SquareSwitch checked={autoApprove} onChange={setAutoApprove} label="Auto-approve payments within limit" />
           </div>

@@ -6,10 +6,18 @@ import { cn } from "@/lib/utils";
 import { pad } from "@/lib/format";
 import { EXPLORER_BASE } from "@/lib/api";
 
-export function Wordmark({ className, inverse }: { className?: string; inverse?: boolean }) {
+export function Wordmark({ className, inverse, showSubtitle = true }: { className?: string; inverse?: boolean; showSubtitle?: boolean }) {
   return (
-    <Link to="/" className={cn("font-serif text-[22px] font-normal tracking-[-0.02em]", inverse ? "text-background" : "text-ink", className)}>
-      SlotPay
+    <Link to="/" className={cn("inline-flex flex-col group leading-none", inverse ? "text-background" : "text-ink", className)}>
+      <div className="flex items-baseline gap-1.5">
+        <span className="font-serif text-[22px] font-normal tracking-[-0.02em]">OASIS</span>
+        <span className="mono text-[9px] uppercase tracking-widest opacity-80 border border-current px-1 py-0.5">Protocol</span>
+      </div>
+      {showSubtitle && (
+        <span className={cn("mono text-[7.5px] uppercase tracking-wider mt-1 hidden sm:inline-block max-w-[220px] truncate opacity-70", inverse ? "text-background/70" : "text-ink-muted")}>
+          Open Autonomous Services &amp; Interoperability Standard
+        </span>
+      )}
     </Link>
   );
 }

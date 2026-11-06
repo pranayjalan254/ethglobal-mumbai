@@ -103,12 +103,12 @@ def x402_protected_consultation(
             "id": service_id,
             "title": "Expert Consultation",
             "price": 18.0,
-            "currency": "USDC",
+            "currency": "HBAR",
             "provider": {"name": "Provider", "wallet": "0x5D8d26cBEa05632ABF3a3cf87E1f3806AD34de77"},
         }
 
     price = float(svc.get("price", 18.0))
-    currency = svc.get("currency", "USDC")
+    currency = svc.get("currency", "HBAR")
     provider_wallet = svc.get("provider", {}).get("wallet", "0x5D8d26cBEa05632ABF3a3cf87E1f3806AD34de77")
 
     challenge = {

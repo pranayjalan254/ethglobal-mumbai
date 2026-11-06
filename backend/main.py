@@ -29,8 +29,8 @@ from routers import (
 # FastAPI App Initialization
 # -----------------------------------------------------------------------------
 app = FastAPI(
-    title="SlotPay API",
-    description="Autonomous Commerce Network powered by Arkiv Web3 Database and Hedera x402 Payments.",
+    title="OASIS Protocol API",
+    description="Open Autonomous Services & Interoperability Standard powered by Arkiv Web3 Database and Hedera x402 Payments.",
     version="1.0.0",
 )
 
@@ -60,7 +60,7 @@ def health_check() -> dict:
     """System health check and network configuration."""
     return {
         "status": "healthy",
-        "service": "SlotPay Autonomous Commerce API",
+        "service": "OASIS Protocol Autonomous Commerce API",
         "version": "1.0.0",
         "database": "Arkiv Rabdi Testnet",
         "arkiv_rpc": ARKIV_RABDI_RPC,

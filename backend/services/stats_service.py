@@ -39,7 +39,7 @@ class StatsService:
                 "id": b.get("txId", "0.0.400123@1700000000.1"),
                 "label": b.get("service", "Consultation"),
                 "amount": -abs(float(b.get("amount", 18.0))),
-                "currency": b.get("currency", "USDC"),
+                "currency": b.get("currency", "HBAR"),
                 "at": b.get("start", "2026-11-06T10:00:00Z"),
             })
         return txs

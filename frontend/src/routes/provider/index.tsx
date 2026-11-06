@@ -25,7 +25,7 @@ function Overview() {
           {[
             ["Published services", String(stats.data!.publishedServices)],
             ["Upcoming bookings", String(stats.data!.upcomingBookings)],
-            ["Earnings, USDC", stats.data!.earningsUsdc.toLocaleString("en-US", { minimumFractionDigits: 2 })],
+            ["Earnings, HBAR", stats.data!.earningsUsdc.toLocaleString("en-US", { minimumFractionDigits: 2 })],
             ["Profile views", stats.data!.profileViews.toLocaleString()],
           ].map(([k, v], i) => (
             <div key={k} className={`px-0 py-8 md:px-6 ${i % 2 ? "border-l border-hairline pl-6" : ""} ${i === 2 ? "md:border-l md:border-hairline border-t md:border-t-0" : ""} ${i === 3 ? "border-t md:border-t-0" : ""} ${i === 0 ? "md:pl-0" : ""}`}>

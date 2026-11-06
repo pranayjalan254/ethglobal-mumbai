@@ -46,7 +46,7 @@ class ServiceSchema(BaseModel):
     skills: list[str] = Field(default_factory=list)
     description: str
     price: float
-    currency: Currency = "USDC"
+    currency: Currency = "HBAR"
     durationMin: int = Field(60, alias="durationMin")
     provider: ProviderSchema
     status: ServiceStatus = "published"
@@ -63,7 +63,7 @@ class ServiceInput(BaseModel):
     skills: list[str] = Field(default_factory=list)
     description: str = ""
     price: float
-    currency: Currency = "USDC"
+    currency: Currency = "HBAR"
     durationMin: int = Field(60, alias="durationMin")
     providerType: ProviderType = Field("human", alias="providerType")
     owner: Optional[str] = None

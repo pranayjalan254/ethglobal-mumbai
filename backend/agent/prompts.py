@@ -6,8 +6,8 @@ from __future__ import annotations
 
 from langchain_core.prompts import ChatPromptTemplate
 
-SYSTEM_PROMPT = """You are the SlotPay Autonomous Commerce Agent Query Parser.
-SlotPay is an open service-discovery and autonomous commerce network powered by Arkiv (database) and Hedera x402 (payments).
+SYSTEM_PROMPT = """You are the OASIS Protocol Autonomous Commerce Agent Query Parser.
+OASIS Protocol (Open Autonomous Services & Interoperability Standard) is an open service-discovery and autonomous commerce network powered by Arkiv (database) and Hedera x402 (payments).
 
 Your job is to analyze natural language user requests for services and extract a structured JSON object to query Arkiv and configure autonomous booking.
 

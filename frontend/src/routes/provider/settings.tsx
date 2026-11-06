@@ -8,13 +8,13 @@ export const Route = createFileRoute("/provider/settings")({ component: Settings
 
 function Settings() {
   const { walletAddress, user } = useAuth();
-  const [currency, setCurrency] = useState<"USDC" | "HBAR">("USDC");
+  const [currency, setCurrency] = useState<"HBAR" | "USDC">("HBAR");
   const [agents, setAgents] = useState(true);
   const [autoRenew, setAutoRenew] = useState(false);
   const rows: [string, React.ReactNode][] = [
     ["Owner wallet", <span className="inline-flex items-center gap-1"><Mono className="break-all">{walletAddress}</Mono><CopyButton value={walletAddress ?? ""} /></span>],
     ["Signed in with", user?.email ?? "Wallet"],
-    ["Default payout currency", <div className="w-48"><Segmented label="Currency" value={currency} onChange={setCurrency} options={[{ value: "USDC", label: "USDC" }, { value: "HBAR", label: "HBAR" }]} /></div>],
+    ["Default payout currency", <div className="w-48"><Segmented label="Currency" value={currency} onChange={setCurrency} options={[{ value: "HBAR", label: "HBAR" }, { value: "USDC", label: "USDC" }]} /></div>],
     ["Accept bookings from agents", <SquareSwitch checked={agents} onChange={setAgents} label={agents ? "On" : "Off"} />],
     ["Auto-renew listings", <SquareSwitch checked={autoRenew} onChange={setAutoRenew} label={autoRenew ? "On" : "Off"} />],
     ["API base URL", <Mono className="text-ink-muted">{API_BASE_URL}</Mono>],

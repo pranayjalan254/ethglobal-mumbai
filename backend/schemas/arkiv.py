@@ -85,8 +85,8 @@ class ArkivQueryFilter(BaseModel):
         description="Maximum price budget in currency units (e.g. 20.0 for '$20')",
     )
     currency: Currency = Field(
-        Currency.USDC,
-        description="Payment currency: USDC or HBAR",
+        Currency.HBAR,
+        description="Payment currency: HBAR or USDC",
     )
     duration_min: Optional[int] = Field(
         None,
@@ -173,7 +173,7 @@ class ArkivServiceEntity(BaseModel):
     category: str = Field(..., description="Category (Engineering, Security, Design, Legal, etc.)")
     skills: list[str] = Field(default_factory=list, description="Searchable skill tags (indexed)")
     price: float = Field(..., ge=0, description="Rate per session")
-    currency: Currency = Field(Currency.USDC, description="Settlement token: USDC or HBAR")
+    currency: Currency = Field(Currency.HBAR, description="Settlement token: HBAR or USDC")
     duration_min: int = Field(..., gt=0, description="Duration in minutes (e.g. 30, 60, 90)")
     provider_type: ProviderType = Field(ProviderType.HUMAN, description="human or ai")
     description: str = Field("", description="Detailed offering description (unindexed)")
@@ -215,7 +215,7 @@ class ArkivBookingReceiptEntity(BaseModel):
     buyer_address: str = Field(..., description="Buyer / Agent account that paid")
     slot_time: int = Field(..., description="Unix timestamp of the booked session")
     amount: float = Field(..., ge=0, description="Amount paid")
-    currency: Currency = Field(Currency.USDC, description="Payment currency (USDC or HBAR)")
+    currency: Currency = Field(Currency.HBAR, description="Payment currency (HBAR or USDC)")
     hedera_tx_id: str = Field(..., description="Hedera testnet transaction ID (e.g. 0.0.400123@173000.1)")
     hashscan_url: str = Field(..., description="Direct HashScan explorer URL for verification")
     created_at: int = Field(..., description="Unix timestamp when payment confirmed")

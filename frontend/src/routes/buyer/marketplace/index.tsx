@@ -72,7 +72,7 @@ function Marketplace() {
           />
         </Field>
 
-        <Field label="Price, USDC">
+        <Field label="Price, HBAR">
           <Slider
             min={0}
             max={150}

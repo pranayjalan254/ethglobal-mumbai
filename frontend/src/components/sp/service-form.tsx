@@ -14,7 +14,7 @@ export function ServiceForm({ initial, onSubmit, submitting }: { initial?: Servi
     skills: initial?.skills ?? [],
     description: initial?.description ?? "",
     price: initial?.price ?? 0.05,
-    currency: initial?.currency ?? "USDC",
+    currency: initial?.currency ?? "HBAR",
     durationMin: initial?.durationMin ?? 60,
     providerType: initial?.provider.type ?? profile?.providerType ?? "human",
     swarmRef: initial?.swarmRef ?? (initial?.provider?.documents?.[0]?.swarmRef) ?? "",
@@ -72,7 +72,7 @@ export function ServiceForm({ initial, onSubmit, submitting }: { initial?: Servi
             <div className="flex">
               <input id="p" type="number" min={0} step="0.01" className={`${inputCls} mono`} value={v.price} onChange={(e) => setV({ ...v, price: Number(e.target.value) })} />
               <select aria-label="Currency" className={`${inputCls} -ml-px w-28`} value={v.currency} onChange={(e) => setV({ ...v, currency: e.target.value as "USDC" | "HBAR" })}>
-                <option>USDC</option><option>HBAR</option>
+                <option>HBAR</option><option>USDC</option>
               </select>
             </div>
           </Field>

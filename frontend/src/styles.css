@@ -4,7 +4,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* SlotPay design system. Square corners, no shadows, no gradients. */
+/* OASIS Protocol design system. Square corners, no shadows, no gradients. */
 
 @theme inline {
   --radius-xs: 0px;

@@ -500,8 +500,22 @@ class ArkivClient:
         key = rpc_entity.get("key") or rpc_entity.get("$key") or ""
         next_slot = attrs.get("nextSlot") or attrs.get("next_slot") or attrs.get("slotStart") or "2026-11-07T10:00:00Z"
         expires_at = str(rpc_entity.get("expiresAt", ""))
-        currency = attrs.get("currency") or "USDC"
+        currency = attrs.get("currency") or "HBAR"
         schema_name = attrs.get("arkiv.schema", "")
+
+        raw_docs = attrs.get("documents")
+        documents = []
+        if isinstance(raw_docs, list):
+            documents = raw_docs
+        elif isinstance(raw_docs, str) and raw_docs:
+            try:
+                parsed_docs = json.loads(raw_docs)
+                if isinstance(parsed_docs, list):
+                    documents = parsed_docs
+            except Exception:
+                documents = [{"name": "Portfolio Document", "swarmRef": raw_docs}]
+        elif attrs.get("swarmRef"):
+            documents = [{"name": "Portfolio Document", "swarmRef": str(attrs.get("swarmRef"))}]
 
         if schema_name == "slotpay.availability.v1" or "dayHour" in attrs:
             p_name = provider_name

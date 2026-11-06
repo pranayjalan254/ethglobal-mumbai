@@ -49,7 +49,7 @@ class BookingService:
                 "id": service_id,
                 "title": "Service Consultation",
                 "price": 20.0,
-                "currency": "USDC",
+                "currency": "HBAR",
                 "provider": {
                     "name": "Provider",
                     "type": "human",
@@ -100,7 +100,7 @@ class BookingService:
                 "id": service_id,
                 "title": "Service Consultation",
                 "price": 20.0,
-                "currency": "USDC",
+                "currency": "HBAR",
                 "provider": {"name": "Provider", "type": "human"},
             }
 

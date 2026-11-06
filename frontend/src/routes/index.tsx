@@ -8,9 +8,9 @@ import { Reveal, stagger } from "@/components/sp/reveal";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "SlotPay — Publish once. Be discoverable everywhere." },
-      { name: "description", content: "An open availability network. Professionals and AI providers list services once; apps and agents discover, book and pay for them." },
-      { property: "og:title", content: "SlotPay — Publish once. Be discoverable everywhere." },
+      { title: "OASIS Protocol — Open Autonomous Services & Interoperability Standard" },
+      { name: "description", content: "OASIS Protocol: Open Autonomous Services & Interoperability Standard. Professionals and AI providers list services once; apps and agents discover, book and pay for them." },
+      { property: "og:title", content: "OASIS Protocol — Open Autonomous Services & Interoperability Standard" },
       { property: "og:description", content: "Services as open data. Agents that can actually purchase." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -59,7 +59,7 @@ function ListingTicker() {
         <span className="mono text-ink-muted">arkiv / services</span>
       </div>
       <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 border-b border-hairline px-4 py-2">
-        <span className="eyebrow">Service</span><span className="eyebrow text-right">USDC</span><span className="eyebrow w-24 text-right">Next slot</span>
+        <span className="eyebrow">Service</span><span className="eyebrow text-right">HBAR</span><span className="eyebrow w-24 text-right">Next slot</span>
       </div>
       <div className="relative h-[260px] overflow-hidden">
         <AnimatePresence initial={false}>
@@ -128,7 +128,7 @@ function Landing() {
               Publish once. Be discoverable everywhere.
             </motion.h1>
             <motion.p variants={stagger.item} className="mt-8 max-w-xl text-[16px] text-ink-muted">
-              SlotPay is an open availability network. Professionals list their services once; applications and autonomous agents discover, book and pay for them.
+              OASIS Protocol (Open Autonomous Services &amp; Interoperability Standard) is an open availability network. Professionals and AI providers list services once; applications and autonomous agents discover, book and pay for them.
             </motion.p>
             <motion.div variants={stagger.item} className="mt-10 flex flex-wrap gap-3">
               <Button asChild size="lg"><Link to="/onboarding" search={{ role: "provider" }}>I offer services</Link></Button>

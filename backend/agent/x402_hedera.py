@@ -73,7 +73,7 @@ class PaymentRequirements(BaseModel):
     scheme: str = Field("exact", description="Hedera exact payment scheme")
     network: str = Field(HEDERA_NETWORK, description="Hedera network: testnet or mainnet")
     amount: float = Field(..., description="Required payment amount")
-    currency: str = Field("USDC", description="Currency asset: USDC or HBAR")
+    currency: str = Field("HBAR", description="Currency asset: HBAR or USDC")
     token_id: Optional[str] = Field(None, description="HTS Token ID if token payment")
     pay_to: str = Field(..., description="Merchant / Provider Hedera account or EVM address")
     fee_payer: str = Field(DEFAULT_FACILITATOR_ACCOUNT, description="Facilitator account paying gas fees")

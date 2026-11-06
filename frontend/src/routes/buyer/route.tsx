@@ -12,9 +12,9 @@ export const Route = createFileRoute("/buyer")({
   },
   head: () => ({
     meta: [
-      { title: "Buyer — SlotPay" },
-      { name: "description", content: "Discover, book and pay for services yourself or through an agent." },
-      { property: "og:title", content: "Buyer — SlotPay" },
+      { title: "Buyer — OASIS Protocol" },
+      { name: "description", content: "Discover, book and pay for services yourself or through an agent on OASIS Protocol." },
+      { property: "og:title", content: "Buyer — OASIS Protocol" },
       { property: "og:description", content: "Discover, book and pay for services." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

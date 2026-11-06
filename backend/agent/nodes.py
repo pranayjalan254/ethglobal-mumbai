@@ -225,7 +225,7 @@ def _fallback_heuristic_extraction(raw_query: str, ref_date: str) -> dict[str, A
         "provider_name": provider_name,
         "max_price": max_price,
         "min_price": None,
-        "currency": "USDC",
+        "currency": "HBAR",
         "duration_min": duration_min,
         "time_preference": {
             "target_date": target_date,
@@ -531,7 +531,7 @@ def compare_and_select(state: QueryParserState) -> dict[str, Any]:
     selected["provider_wallet"] = provider_wallet
 
     logger.info(
-        "Selected provider %s (%s) for %s USDC",
+        "Selected provider %s (%s) for %s HBAR",
         provider_name,
         selected.get("title", "Consultation"),
         selected.get("price", 0.0),
@@ -605,7 +605,7 @@ def execute_x402_payment(state: QueryParserState) -> dict[str, Any]:
     action = parsed.agent_decision.action
     approved_budget = parsed.agent_decision.auto_approve_budget
     amount = float(selected.get("price", 0.0))
-    currency = selected.get("currency", "USDC")
+    currency = selected.get("currency", "HBAR")
     provider_wallet = selected.get("provider_wallet") or (
         selected.get("provider", {}).get("wallet") if isinstance(selected.get("provider"), dict) else "0x0"
     )
