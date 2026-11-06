@@ -554,12 +554,28 @@ def claim_slot(state: QueryParserState) -> dict[str, Any]:
 
     service_id = str(selected.get("id") or selected.get("entityKey") or "srv_arkiv")
     slot_time = str(selected.get("next_slot") or selected.get("nextSlot") or "2026-11-06T10:00:00Z")
+    client_wallet = state.get("client_wallet") or "0x71c2a0b3c4e5f61a2b3f4e5d6c7b8a9f0e1d2c3b"
+    provider_id = (
+        selected.get("provider_name")
+        or (selected.get("provider", {}).get("name") if isinstance(selected.get("provider"), dict) else None)
+        or "provider_001"
+    )
+
+    # Create Arkiv PendingSlotClaim (SlotPay-owned, 5-minute TTL)
+    pending_claim = arkiv_client.create_pending_claim(
+        slot_id=service_id,
+        availability_entity_key=str(selected.get("entityKey") or selected.get("id") or ""),
+        provider_id=provider_id,
+        customer_wallet=client_wallet,
+        duration_sec=300,
+    )
 
     slot = {
-        "claim_id": f"clm_{abs(hash(service_id + slot_time)) % 1000000000:09x}",
+        "claim_id": pending_claim["reservationId"],
         "service_id": service_id,
         "slot_time": slot_time,
         "expires_at_sec": 300,
+        "reservation": pending_claim,
     }
 
     return {
@@ -619,11 +635,27 @@ def execute_x402_payment(state: QueryParserState) -> dict[str, Any]:
             client_wallet=client_wallet,
             approved_budget=approved_budget,
         )
+        # Create Arkiv ConfirmedReservation (SlotPay-owned, retained through appointment)
+        service_id = str(selected.get("id") or selected.get("entityKey") or "srv_arkiv")
+        provider_id = (
+            selected.get("provider_name")
+            or (selected.get("provider", {}).get("name") if isinstance(selected.get("provider"), dict) else None)
+            or "provider_001"
+        )
+        confirmed_res = arkiv_client.create_confirmed_reservation(
+            slot_id=service_id,
+            payment_tx_id=settlement.tx_id,
+            availability_entity_key=str(selected.get("entityKey") or selected.get("id") or ""),
+            provider_id=provider_id,
+            customer_wallet=client_wallet,
+            retention_days=30,
+        )
         return {
             "x402_challenge": challenge.model_dump(),
             "payment_settled": True,
             "requires_approval": False,
             "settlement_receipt": settlement.model_dump(),
+            "confirmed_reservation": confirmed_res,
             "steps_executed": steps,
         }
     except BudgetExceededError as e:

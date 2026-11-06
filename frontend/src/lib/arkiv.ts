@@ -40,6 +40,19 @@ export const AvailabilitySchema = defineSchema("slotpay.availability.v1", {
   durationMin: i32().indexed(),
 });
 
+// Canonical SlotPay Reservation Schema on Arkiv (SlotPay-owned)
+export const ReservationSchema = defineSchema("slotpay.reservation.v1", {
+  reservationId: str().indexed(),
+  slotId: str().indexed(),
+  availabilityEntityKey: str().indexed(),
+  providerId: str().indexed(),
+  customerWallet: addr().indexed(),
+  status: str().indexed(), // "pending" | "confirmed"
+  paymentTransactionId: str().optional(),
+  createdAt: str(),
+  confirmedAt: str().optional(),
+});
+
 export const DEFAULT_ARKIV_ACCESS_KEY = "ark_live_FkBVVU1GhNDlAKQwhXeZSxI5gs6BI7dR";
 
 export function getArkivAccessKey(): string {
@@ -86,6 +99,57 @@ export interface ArkivServiceRecord {
   rating: number;
   expiresAt?: string | undefined;
   isArkivEntity?: boolean | undefined;
+}
+
+export interface ArkivReservationRecord {
+  type: "slot_reservation";
+  reservationId: string;
+  slotId: string;
+  availabilityEntityKey: string;
+  providerId: string;
+  customerWallet: string;
+  status: "pending" | "confirmed";
+  paymentTransactionId?: string;
+  createdAt: string;
+  confirmedAt?: string;
+  expiresAt?: string;
+}
+
+export async function queryArkivReservations(
+  client?: ReturnType<typeof getArkivPublicClient>
+): Promise<ArkivReservationRecord[]> {
+  try {
+    const pubClient = client || getArkivPublicClient();
+    const query = pubClient.select().from(ReservationSchema);
+    const page = await query.withCount().limit(100).fetch();
+    const now = Date.now();
+
+    return (page.entities || [])
+      .map((row: any) => ({
+        type: "slot_reservation" as const,
+        reservationId: row.reservationId?.value ?? (row.$key as string),
+        slotId: row.slotId?.value ?? "",
+        availabilityEntityKey: row.availabilityEntityKey?.value ?? "",
+        providerId: row.providerId?.value ?? "",
+        customerWallet: row.customerWallet?.value ?? "",
+        status: (row.status?.value ?? "pending") as "pending" | "confirmed",
+        paymentTransactionId: row.paymentTransactionId?.value,
+        createdAt: row.createdAt?.value ?? new Date().toISOString(),
+        confirmedAt: row.confirmedAt?.value,
+        expiresAt: row.$expiresAt ? row.$expiresAt.toString() : undefined,
+      }))
+      .filter((r) => {
+        // Exclude expired pending claims (Arkiv TTL already drops them on-chain, safety check in client)
+        if (r.status === "pending" && r.expiresAt) {
+          const exp = new Date(r.expiresAt).getTime();
+          if (!isNaN(exp) && exp <= now) return false;
+        }
+        return true;
+      });
+  } catch (err) {
+    console.warn("[SlotPay] Arkiv reservations query notice:", err);
+    return [];
+  }
 }
 
 export interface ArkivServicesFilter {
@@ -215,7 +279,15 @@ export async function queryArkivServices(
 
     const page = await query.withCount().limit(limit).offset(offset).fetch();
 
-    let records = page.entities.map(mapRowToRecord);
+    // Query active Arkiv reservations to exclude slots with unexpired pending claims or confirmed reservations
+    const reservations = await queryArkivReservations(client);
+    const reservedKeys = new Set(
+      reservations.flatMap((r) => [r.slotId.toLowerCase(), r.availabilityEntityKey.toLowerCase()]).filter(Boolean)
+    );
+
+    let records = page.entities
+      .map(mapRowToRecord)
+      .filter((rec) => !reservedKeys.has(rec.id.toLowerCase()) && !reservedKeys.has(rec.entityKey.toLowerCase()));
 
     // If no direct services exist, also discover open providers from published Arkiv availability entities on Rabdi!
     if (records.length === 0) {
@@ -225,6 +297,9 @@ export async function queryArkivServices(
         if (availPage.entities && availPage.entities.length > 0) {
           const seenWallets = new Set<string>();
           for (const av of availPage.entities) {
+            const keyStr = (av.$key as string).toLowerCase();
+            if (reservedKeys.has(keyStr)) continue;
+
             const pWallet = (av.providerWallet?.value || av.$owner || "") as string;
             if (seenWallets.has(pWallet.toLowerCase())) continue;
             seenWallets.add(pWallet.toLowerCase());
@@ -289,9 +364,44 @@ export async function getArkivService(entityKey: string): Promise<ArkivServiceRe
   if (!entityKey || !entityKey.startsWith("0x")) return null;
   try {
     const client = getArkivPublicClient();
-    const entity = await client.getEntity(entityKey as `0x${string}`, ServicesSchema);
-    if (!entity) return null;
-    return mapRowToRecord(entity);
+    try {
+      const entity = await client.getEntity(entityKey as `0x${string}`, ServicesSchema);
+      if (entity) return mapRowToRecord(entity);
+    } catch {
+      // Not under ServicesSchema, attempt AvailabilitySchema next
+    }
+
+    try {
+      const availEntity = await client.getEntity(entityKey as `0x${string}`, AvailabilitySchema);
+      if (availEntity) {
+        const pWallet = (availEntity.providerWallet?.value || availEntity.$owner || "") as string;
+        const pName = (availEntity.providerName?.value as string) || "Verified Provider";
+        const dur = Number(availEntity.durationMin?.value || 60);
+        const slot = (availEntity.nextSlot?.value as string) || new Date().toISOString();
+        return {
+          id: availEntity.$key as string,
+          entityKey: availEntity.$key as string,
+          title: `1-on-1 Consultation with ${pName}`,
+          category: "Consultation",
+          skills: ["Consultation", "Advisory", "Code Review"],
+          providerType: "human",
+          providerName: pName,
+          providerWallet: pWallet,
+          price: 25.0,
+          currency: "USDC",
+          durationMin: dur,
+          description: `Open availability published directly to Arkiv Rabdi testnet. Hourly blocks: ${availEntity.dayHour?.value || "Flexible"}`,
+          nextSlot: slot,
+          rating: 5.0,
+          expiresAt: availEntity.$expiresAt ? availEntity.$expiresAt.toString() : undefined,
+          isArkivEntity: true,
+        };
+      }
+    } catch {
+      // ignore
+    }
+
+    return null;
   } catch (err) {
     console.warn("[SlotPay] Arkiv getEntity error:", err);
     return null;
@@ -331,26 +441,6 @@ export async function getArkivWalletClient(provider: any, accountAddress: string
   const currentId = await getCurrentChainId();
 
   if (currentId !== targetChainId) {
-    // Check if this looks like a Privy provider (it has an internal _wallet reference
-    // or was returned from targetWallet.getEthereumProvider()).
-    // Privy already switched the chain before returning the provider, so if we're
-    // still on the wrong chain it means Privy's switchChain failed — surface that clearly.
-    const isPrivyProvider =
-      typeof provider._privyWallet !== "undefined" ||
-      typeof provider._isPrivy !== "undefined" ||
-      // Privy providers expose a non-standard chainChanged listener pattern
-      (typeof provider.on === "function" && typeof provider._metamask === "undefined");
-
-    if (isPrivyProvider) {
-      // Privy should have already switched — if it didn't, the user may have
-      // dismissed the dialog. Throw a clear message; don't retry the chain switch.
-      throw new Error(
-        `Your Privy wallet is on chain ${currentId}, not Arkiv Rabdi (${targetChainId}). ` +
-        `Please accept the network switch prompt in Privy and try again.`
-      );
-    }
-
-    // Non-Privy (e.g. MetaMask injected) — do raw EIP-1193 switching
     try {
       await provider.request({
         method: "wallet_switchEthereumChain",
@@ -360,14 +450,13 @@ export async function getArkivWalletClient(provider: any, accountAddress: string
       const code: number = switchError?.code ?? switchError?.error?.code ?? 0;
 
       if (code === -32002) {
-        // A switch/add request is already pending in MetaMask — tell the user to action it
         throw new Error(
-          "MetaMask already has a pending network request. Please open MetaMask, accept the pending prompt, then try again."
+          "Your wallet already has a pending network request. Please open your wallet, accept the pending prompt, then try again."
         );
       }
 
-      if (code === 4902 || code === -32603) {
-        // Chain not known to MetaMask — add it, then switch
+      if (code === 4902 || code === -32603 || String(switchError?.message || "").toLowerCase().includes("unrecognized")) {
+        // Chain not known to wallet — prompt wallet to add Arkiv Rabdi, then switch
         try {
           await provider.request({
             method: "wallet_addEthereumChain",
@@ -385,21 +474,26 @@ export async function getArkivWalletClient(provider: any, accountAddress: string
           const addCode: number = addErr?.code ?? addErr?.error?.code ?? 0;
           if (addCode === -32002) {
             throw new Error(
-              "MetaMask already has a pending network request. Please open MetaMask, accept the prompt to add Arkiv Rabdi, then try again."
+              "Your wallet already has a pending network request. Please open your wallet, accept the prompt to add Arkiv Rabdi, then try again."
             );
           }
-          throw new Error(`Could not add Arkiv Rabdi to MetaMask: ${addErr?.message ?? addErr}`);
+          throw new Error(`Could not add Arkiv Rabdi network to wallet: ${addErr?.message ?? addErr}`);
         }
-        // After adding, switch to it
-        await provider.request({
-          method: "wallet_switchEthereumChain",
-          params: [{ chainId: chainIdHex }],
-        });
+
+        // After adding, ensure the switch to Rabdi is applied
+        try {
+          await provider.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId: chainIdHex }],
+          });
+        } catch {
+          // Some wallets auto-switch upon adding
+        }
       } else if (code === 4001) {
-        throw new Error("You rejected the network switch. Please switch to Arkiv Rabdi to publish.");
+        throw new Error("You rejected the network switch prompt in your wallet. Please switch to Arkiv Rabdi to publish.");
       } else {
         throw new Error(
-          `Could not switch to Arkiv Rabdi (chain ${targetChainId}): ${switchError?.message ?? switchError}`
+          `Could not switch wallet to Arkiv Rabdi (chain ${targetChainId}): ${switchError?.message ?? switchError}`
         );
       }
     }
@@ -509,6 +603,92 @@ export async function publishAvailabilityOnChain(
     tx_ref: result.txHash,
     expires_at: result.expiresAt ? result.expiresAt.toString() : new Date().toISOString(),
     count: cells.length,
+  };
+}
+
+/**
+ * Publish a SlotPay-owned PendingSlotClaim on Arkiv Rabdi testnet (5-minute expiration).
+ */
+export async function createPendingSlotClaimOnChain(
+  providerOrClient: any,
+  accountAddress: string,
+  params: {
+    slotId: string;
+    availabilityEntityKey: string;
+    providerId: string;
+    customerWallet: string;
+    reservationId?: string;
+  }
+) {
+  const walletClient = await getArkivWalletClient(providerOrClient, accountAddress);
+  const resId = params.reservationId || `res_${Math.random().toString(16).slice(2, 10)}`;
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + 5 * 60 * 1000);
+
+  const result = await walletClient.createEntity(
+    ReservationSchema,
+    {
+      reservationId: resId,
+      slotId: params.slotId,
+      availabilityEntityKey: params.availabilityEntityKey,
+      providerId: params.providerId,
+      customerWallet: addr(params.customerWallet as `0x${string}`),
+      status: "pending",
+      createdAt: now.toISOString(),
+    },
+    { expiration: ExpirationTime.fromMinutes(5) }
+  );
+
+  return {
+    reservationId: resId,
+    entityKey: result.entityKey,
+    txHash: result.txHash,
+    expiresAt: expiresAt.toISOString(),
+  };
+}
+
+/**
+ * Publish a SlotPay-owned ConfirmedReservation on Arkiv Rabdi testnet.
+ */
+export async function createConfirmedReservationOnChain(
+  providerOrClient: any,
+  accountAddress: string,
+  params: {
+    slotId: string;
+    availabilityEntityKey: string;
+    providerId: string;
+    customerWallet: string;
+    paymentTransactionId: string;
+    reservationId?: string;
+    retentionDays?: number;
+  }
+) {
+  const walletClient = await getArkivWalletClient(providerOrClient, accountAddress);
+  const resId = params.reservationId || `res_${Math.random().toString(16).slice(2, 10)}`;
+  const now = new Date();
+  const retention = params.retentionDays ?? 30;
+
+  const result = await walletClient.createEntity(
+    ReservationSchema,
+    {
+      reservationId: resId,
+      slotId: params.slotId,
+      availabilityEntityKey: params.availabilityEntityKey,
+      providerId: params.providerId,
+      customerWallet: addr(params.customerWallet as `0x${string}`),
+      status: "confirmed",
+      paymentTransactionId: params.paymentTransactionId,
+      createdAt: now.toISOString(),
+      confirmedAt: now.toISOString(),
+    },
+    { expiration: ExpirationTime.fromDays(retention) }
+  );
+
+  return {
+    reservationId: resId,
+    entityKey: result.entityKey,
+    txHash: result.txHash,
+    status: "confirmed",
   };
 }
 

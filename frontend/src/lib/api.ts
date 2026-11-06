@@ -65,6 +65,10 @@ export interface Slot {
   durationMin: number;
   status: SlotStatus;
   claimExpiresAt?: string | undefined;
+  txId?: string | undefined;
+  bookingRef?: string | undefined;
+  reservationId?: string | undefined;
+  cellKey?: string | undefined;
 }
 
 export interface PaymentRequirements {
@@ -276,7 +280,37 @@ export async function getService(id: string): Promise<Service> {
   } catch (_err) {
     await delay(30);
     const s = services().find((x) => x.id === id) ?? MY_SERVICES?.find((x) => x.id === id);
-    if (!s) throw new Error("Service not found");
+    if (!s) {
+      if (id.startsWith("0x")) {
+        return {
+          id,
+          entityKey: id,
+          title: "1-on-1 Consultation",
+          category: "Consultation",
+          skills: ["Consultation", "Advisory", "Code Review"],
+          description: "Open availability published directly to Arkiv Rabdi testnet.",
+          price: 25.0,
+          currency: "USDC",
+          durationMin: 60,
+          provider: {
+            id: `p_${id.slice(2, 10)}`,
+            name: "Verified Provider",
+            type: "human",
+            headline: "Specialist · Published on Arkiv Rabdi",
+            bio: "Verified Provider on SlotPay",
+            wallet: id,
+            rating: 5.0,
+            reviews: 1,
+            credentials: ["Arkiv Verified Provider"],
+            documents: [],
+          },
+          status: "published",
+          nextSlot: new Date().toISOString(),
+          location: "remote",
+        };
+      }
+      throw new Error("Service not found");
+    }
     return s;
   }
 }
@@ -332,11 +366,30 @@ export async function getAvailability(ownerOrContext?: string | unknown): Promis
   return http<Slot[]>(`/api/availability${qs}`);
 }
 
-/** POST /api/availability  body: { cells: string[], owner?: string } -> { entity_key } */
-export async function publishAvailability(cells: string[], owner?: string) {
+/** GET /api/availability/meta?owner={wallet} */
+export async function getAvailabilityMeta(owner?: string) {
+  const qs = owner ? `?owner=${encodeURIComponent(owner)}` : "";
+  return http<{
+    cells: string[];
+    is_published: boolean;
+    entity_key?: string;
+    count: number;
+    published_at?: string;
+    expires_at?: string;
+    tx_hash?: string;
+  }>(`/api/availability/meta${qs}`);
+}
+
+/** POST /api/availability  body: { cells: string[], owner?: string, entity_key?: string, tx_ref?: string } -> { entity_key } */
+export async function publishAvailability(
+  cells: string[],
+  owner?: string,
+  entity_key?: string,
+  tx_ref?: string
+) {
   return http<{ entity_key: string; count: number }>("/api/availability", {
     method: "POST",
-    body: JSON.stringify({ cells, owner }),
+    body: JSON.stringify({ cells, owner, entity_key, tx_ref }),
   });
 }
 

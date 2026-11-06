@@ -4,7 +4,7 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { getService, getServiceSlots, type Slot } from "@/lib/api";
-import { dateOnly, money, shortHash } from "@/lib/format";
+import { dateOnly, money, parseDateSafely, shortHash } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { CopyButton, Empty, ErrorBlock, Eyebrow, Mono, ProgressLine, Tag, TypeTag } from "@/components/sp/primitives";
 import { Checkout } from "@/components/sp/checkout";
@@ -78,24 +78,30 @@ function Detail() {
               <Eyebrow>Choose a slot</Eyebrow>
             </div>
             <div className="p-5">
-              {slots.isLoading ? <ProgressLine /> : Object.keys(byDay).length === 0 ? <Empty title="No open slots" /> : Object.entries(byDay).map(([day, list]) => (
-                <div key={day} className="mb-4">
-                  <div className="mb-2 text-[13px]">{format(new Date(day), "EEEE d MMMM")}</div>
-                  <div className="grid grid-cols-4 gap-px border border-hairline bg-hairline">
-                    {list.map((x) => (
-                      <button
-                        key={x.id}
-                        disabled={x.status !== "open"}
-                        onClick={() => setSel(x)}
-                        aria-pressed={sel?.id === x.id}
-                        className={cn("mono py-2.5 transition-colors duration-150", x.status !== "open" ? "bg-surface text-ink-muted line-through" : sel?.id === x.id ? "bg-ink text-background" : "bg-surface-raised hover:bg-surface")}
-                      >
-                        {format(new Date(x.start), "HH:mm")}
-                      </button>
-                    ))}
+              {slots.isLoading ? <ProgressLine /> : Object.keys(byDay).length === 0 ? <Empty title="No open slots" /> : Object.entries(byDay).map(([day, list]) => {
+                const dayObj = parseDateSafely(day);
+                return (
+                  <div key={day} className="mb-4">
+                    <div className="mb-2 text-[13px]">{dayObj ? format(dayObj, "EEEE d MMMM") : day}</div>
+                    <div className="grid grid-cols-4 gap-px border border-hairline bg-hairline">
+                      {list.map((x) => {
+                        const slotObj = parseDateSafely(x.start);
+                        return (
+                          <button
+                            key={x.id}
+                            disabled={x.status !== "open"}
+                            onClick={() => setSel(x)}
+                            aria-pressed={sel?.id === x.id}
+                            className={cn("mono py-2.5 transition-colors duration-150", x.status !== "open" ? "bg-surface text-ink-muted line-through" : sel?.id === x.id ? "bg-ink text-background" : "bg-surface-raised hover:bg-surface")}
+                          >
+                            {slotObj ? format(slotObj, "HH:mm") : x.start}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <dl className="border-t border-hairline px-5 py-3 text-[13.5px]">
               <div className="flex justify-between py-1"><dt className="text-ink-muted">Service, {s.durationMin} min</dt><dd className="mono">{money(s.price, s.currency)}</dd></div>

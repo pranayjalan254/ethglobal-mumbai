@@ -82,13 +82,7 @@ function Bridge() {
               await targetWallet.switchChain(reqChainId);
             }
           } catch (switchErr) {
-            console.warn("[SlotPay] Privy switchChain notice:", switchErr);
-            // Throw so the UI can tell the user clearly
-            throw new Error(
-              `Could not switch your Privy wallet to Arkiv Rabdi (chain ${arkivChain.id}). ` +
-              `Please accept the network switch in Privy and try again. ` +
-              `(${switchErr?.message ?? switchErr})`
-            );
+            console.warn("[SlotPay] Privy switchChain initial attempt (will prompt via EIP-1193):", switchErr);
           }
         }
 

@@ -126,8 +126,40 @@ class ArkivQueryFilter(BaseModel):
 
 
 # =====================================================================
-# Arkiv Native Entity Schemas (SDK 1.0.x / Option B: Vanish & Burn)
+# Arkiv Native Entity Schemas (SlotPay-Owned Reservation Architecture)
 # =====================================================================
+
+class ReservationStatus(str, Enum):
+    PENDING = "pending"
+    CONFIRMED = "confirmed"
+
+
+class ArkivReservationEntity(BaseModel):
+    """
+    SlotPay-owned Reservation Entity registered on Arkiv.
+    Arkiv Schema: 'slotpay.reservation.v1'
+
+    ARCHITECTURE:
+    - Providers own and publish AvailabilitySlot entities.
+    - SlotPay platform wallet owns and publishes SlotReservation entities.
+    - SlotPay never modifies or deletes provider-owned entities.
+    - Marketplaces determine availability by combining provider-owned availability records
+      with active SlotPay reservation records.
+    - Unexpired pending claims (5-minute TTL) temporarily hold the slot.
+    - Confirmed reservations remain active until the appointment has passed.
+    """
+    type: str = Field("slot_reservation", description="Entity type tag")
+    reservationId: str = Field(..., description="Unique reservation identifier")
+    slotId: str = Field(..., description="Referenced availability slot ID")
+    availabilityEntityKey: str = Field(..., description="Reference to provider's availability entity")
+    providerId: str = Field(..., description="Provider ID or wallet address")
+    customerWallet: str = Field(..., description="Customer/agent wallet address")
+    status: ReservationStatus = Field(ReservationStatus.PENDING, description="pending or confirmed")
+    paymentTransactionId: Optional[str] = Field(None, description="Hedera tx ID once payment settles")
+    createdAt: str = Field(..., description="Creation ISO-8601 timestamp")
+    confirmedAt: Optional[str] = Field(None, description="Confirmation ISO-8601 timestamp")
+    expiresAt: Optional[str] = Field(None, description="Expiration timestamp (TTL)")
+
 
 class ArkivServiceEntity(BaseModel):
     """
@@ -154,13 +186,10 @@ class ArkivSlotEntity(BaseModel):
     Available Time Slot Entity registered on Arkiv.
     Arkiv Tag: 'slotpay:slot:v1'
 
-    ARCHITECTURE NOTE (Option B - Default Blocked):
-    - By default, ALL slots are blocked.
-    - An ArkivSlotEntity ONLY exists when the seller explicitly publishes it.
-    - If it exists on Arkiv, it is 100% OPEN.
-    - When booked via Hedera x402, the seller calls deleteEntity() to burn it,
-      instantly returning this time slot to BLOCKED.
-    - expires_at is set to start_time so past unbooked slots are automatically purged.
+    ARCHITECTURE NOTE (Provider-Owned Availability):
+    - Providers own and publish their AvailabilitySlot entities.
+    - SlotPay does not modify or delete these provider-owned records.
+    - SlotPay determines availability by checking against SlotPay-owned SlotReservation entities.
     """
     entity_key: Optional[str] = Field(None, description="Unique Arkiv slot entity key (0x...)")
     tag: str = Field("slotpay:slot:v1", description="Arkiv schema tag")
@@ -170,7 +199,7 @@ class ArkivSlotEntity(BaseModel):
     duration_min: int = Field(60, gt=0, description="Session duration in minutes")
     expires_at: int = Field(
         ...,
-        description="Arkiv TTL deadline; defaults to start_time so expired slots auto-delete",
+        description="Arkiv TTL deadline",
     )
 
 

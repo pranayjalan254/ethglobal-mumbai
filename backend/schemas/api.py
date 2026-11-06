@@ -97,6 +97,10 @@ class SlotSchema(BaseModel):
     durationMin: int = Field(60, alias="durationMin")
     status: SlotStatus = "open"
     claimExpiresAt: Optional[str] = Field(None, alias="claimExpiresAt")
+    txId: Optional[str] = Field(None, alias="txId")
+    bookingRef: Optional[str] = Field(None, alias="bookingRef")
+    reservationId: Optional[str] = Field(None, alias="reservationId")
+    cellKey: Optional[str] = Field(None, alias="cellKey")
 
 
 class ClaimSlotResponse(BaseModel):
@@ -107,6 +111,8 @@ class ClaimSlotResponse(BaseModel):
 class AvailabilityPublishInput(BaseModel):
     cells: list[str]
     owner: Optional[str] = None
+    entity_key: Optional[str] = None
+    tx_ref: Optional[str] = None
 
 
 class AvailabilityPublishResponse(BaseModel):

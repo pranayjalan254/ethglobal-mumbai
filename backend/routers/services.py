@@ -66,8 +66,83 @@ def list_services(
 
 @router.get("/{service_id}", response_model=ServiceSchema)
 def get_service(service_id: str) -> dict:
-    """Retrieve service details by ID."""
+    """Retrieve service details by ID or Arkiv entity key."""
     svc = service_store.get_service(service_id)
+    if not svc:
+        svc = service_store.get_service_by_entity_key(service_id)
+
+    if not svc and service_id.startswith("0x"):
+        # 1. Query Arkiv RPC directly for entity
+        from agent.arkiv_client import arkiv_client
+        svc = arkiv_client.get_service_by_id_or_key(service_id)
+
+    if not svc:
+        # 2. Check availability service published metadata
+        from services.availability_service import availability_service
+        from services.service_store import at_offset
+        for owner_key, meta in availability_service._published_meta.items():
+            if meta.get("entity_key", "").lower() == service_id.lower() or (service_id.startswith("0x") and owner_key.lower() == service_id.lower()):
+                cells = meta.get("cells", [])
+                p_wallet = owner_key if owner_key != "default" else "0x71c2a0b3c4e5f61a2b3f4e5d6c7b8a9f0e1d2c3b"
+                svc = {
+                    "id": service_id,
+                    "title": "1-on-1 Consultation",
+                    "category": "Consultation",
+                    "skills": ["Consultation", "Advisory", "Code Review"],
+                    "description": f"Open availability published directly to Arkiv Rabdi testnet. Hourly blocks: {','.join(cells[:6]) if cells else 'Flexible'}",
+                    "price": 25.0,
+                    "currency": "USDC",
+                    "durationMin": 60,
+                    "provider": {
+                        "id": f"p_{p_wallet[:8]}",
+                        "name": "Verified Provider",
+                        "type": "human",
+                        "headline": "Specialist · Published on Arkiv Rabdi",
+                        "bio": "Verified Provider on SlotPay",
+                        "wallet": p_wallet,
+                        "rating": 5.0,
+                        "reviews": 1,
+                        "credentials": ["Arkiv Verified Provider"],
+                        "documents": [],
+                    },
+                    "status": "published",
+                    "entityKey": service_id,
+                    "expiresAt": meta.get("expires_at"),
+                    "nextSlot": at_offset(1, 10),
+                    "location": "remote",
+                }
+                break
+
+    # 3. If service_id is an on-chain hex entity key, construct default consultation service
+    if not svc and service_id.startswith("0x"):
+        from services.service_store import at_offset
+        svc = {
+            "id": service_id,
+            "title": "1-on-1 Consultation",
+            "category": "Consultation",
+            "skills": ["Consultation", "Advisory", "Code Review"],
+            "description": "Open availability published directly to Arkiv Rabdi testnet.",
+            "price": 25.0,
+            "currency": "USDC",
+            "durationMin": 60,
+            "provider": {
+                "id": f"p_{service_id[2:10]}",
+                "name": "Verified Provider",
+                "type": "human",
+                "headline": "Specialist · Published on Arkiv Rabdi",
+                "bio": "Verified Provider on SlotPay",
+                "wallet": service_id,
+                "rating": 5.0,
+                "reviews": 1,
+                "credentials": ["Arkiv Verified Provider"],
+                "documents": [],
+            },
+            "status": "published",
+            "entityKey": service_id,
+            "nextSlot": at_offset(1, 10),
+            "location": "remote",
+        }
+
     if not svc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

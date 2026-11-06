@@ -24,10 +24,16 @@ def get_availability(owner: Optional[str] = Query(None)) -> list[dict]:
     return availability_service.get_provider_availability(owner)
 
 
+@router.get("/api/availability/meta")
+def get_availability_meta(owner: Optional[str] = Query(None)) -> dict:
+    """Retrieve metadata about published schedule and Arkiv entity."""
+    return availability_service.get_published_meta(owner)
+
+
 @router.post("/api/availability", response_model=AvailabilityPublishResponse)
 def publish_availability(body: AvailabilityPublishInput) -> dict:
     """Save availability cells and unblock open slots on Arkiv."""
-    return availability_service.publish_availability(body.cells, body.owner)
+    return availability_service.publish_availability(body.cells, body.owner, body.entity_key, body.tx_ref)
 
 
 @router.post("/api/slots/{slot_id}/claim", response_model=ClaimSlotResponse)

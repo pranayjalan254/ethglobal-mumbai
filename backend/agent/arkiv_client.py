@@ -11,19 +11,24 @@ following the Arkiv protocol and JSON-RPC specification:
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 import json
 import logging
+import secrets
+import time
 from typing import Any, Optional
 import urllib.request
 import urllib.error
 
-from config import ARKIV_ACCESS_KEY, ARKIV_RABDI_RPC
+from config import ARKIV_ACCESS_KEY, ARKIV_PLATFORM_WALLET, ARKIV_RABDI_RPC
 from schemas.arkiv import ArkivQueryFilter, ProviderType
 
 logger = logging.getLogger(__name__)
 
 ARKIV_SCHEMA_NAME = "slotpay.services.v1"
 ARKIV_AVAILABILITY_SCHEMA = "slotpay.availability.v1"
+ARKIV_RESERVATION_SCHEMA = "slotpay.reservation.v1"
+DEFAULT_PLATFORM_WALLET = ARKIV_PLATFORM_WALLET or "0x0000000000000000000000000000000000000000"
 
 
 def build_arkiv_query_string(f: ArkivQueryFilter) -> str:
@@ -63,11 +68,20 @@ def build_arkiv_query_string(f: ArkivQueryFilter) -> str:
 
 
 class ArkivClient:
-    """Arkiv database client for SlotPay service discovery."""
+    """Arkiv database client for SlotPay service discovery and booking reservations."""
 
-    def __init__(self, rpc_url: str = ARKIV_RABDI_RPC, access_key: str = ARKIV_ACCESS_KEY):
+    def __init__(
+        self,
+        rpc_url: str = ARKIV_RABDI_RPC,
+        access_key: str = ARKIV_ACCESS_KEY,
+        platform_wallet: str = DEFAULT_PLATFORM_WALLET,
+    ):
         self.rpc_url = rpc_url
         self.access_key = access_key
+        self.platform_wallet = platform_wallet
+        # SlotPay-owned reservation store (keyed by reservationId and slotId)
+        self._reservations: dict[str, dict[str, Any]] = {}
+        self._slot_reservations: dict[str, dict[str, Any]] = {}
 
     def _rpc_url_with_access_key(self) -> str:
         """Attach accessKey in the URL path segment for Rabdi RPC endpoint."""
@@ -78,27 +92,306 @@ class ArkivClient:
             return base
         return f"{base}/{self.access_key}"
 
+    def _broadcast_on_chain(self, payload: dict[str, Any]) -> Optional[dict[str, Any]]:
+        """Broadcast reservation entity to Arkiv Rabdi testnet via platform relayer."""
+        import shutil
+        import subprocess
+        from pathlib import Path
+
+        relayer_path = Path(__file__).resolve().parent / "arkiv_relayer.mjs"
+        if not relayer_path.is_file():
+            return None
+
+        node_bin = "/home/pranay/.nvm/versions/node/v22.20.0/bin/node"
+        if not Path(node_bin).is_file():
+            node_bin = shutil.which("node") or "node"
+
+        try:
+            res = subprocess.run(
+                [node_bin, str(relayer_path), json.dumps(payload)],
+                capture_output=True,
+                text=True,
+                timeout=20,
+                cwd=str(Path(__file__).resolve().parent.parent.parent),
+            )
+            if res.returncode == 0 and res.stdout.strip():
+                lines = [line.strip() for line in res.stdout.strip().splitlines() if line.strip()]
+                for line in reversed(lines):
+                    if line.startswith("{") and line.endswith("}"):
+                        return json.loads(line)
+            logger.warning("Arkiv relayer return %d: %s %s", res.returncode, res.stdout, res.stderr)
+            return None
+        except Exception as e:
+            logger.warning("Arkiv relayer invocation error: %s", e)
+            return None
+
+    def create_pending_claim(
+        self,
+        slot_id: str,
+        availability_entity_key: str = "",
+        provider_id: str = "",
+        customer_wallet: str = DEFAULT_PLATFORM_WALLET,
+        duration_sec: int = 300,
+    ) -> dict[str, Any]:
+        """
+        Create a SlotPay-owned PendingSlotClaim entity with 5-minute expiration.
+        Represents a temporary booking claim owned by SlotPay platform wallet.
+        """
+        res_id = f"reservation_{secrets.token_hex(4)}"
+        now = datetime.now(timezone.utc)
+        created_at = now.isoformat().replace("+00:00", "Z")
+        expires_at = (now + timedelta(seconds=duration_sec)).isoformat().replace("+00:00", "Z")
+
+        record = {
+            "type": "slot_reservation",
+            "reservationId": res_id,
+            "slotId": slot_id,
+            "availabilityEntityKey": availability_entity_key or f"0x{secrets.token_hex(32)}",
+            "providerId": provider_id or "provider_001",
+            "customerWallet": customer_wallet,
+            "status": "pending",
+            "createdAt": created_at,
+            "expiresAt": expires_at,
+            "expires_at_epoch": time.time() + duration_sec,
+            "owner": self.platform_wallet,
+        }
+
+        # Broadcast on-chain to Arkiv Rabdi testnet
+        on_chain = self._broadcast_on_chain({
+            "action": "create_pending_claim",
+            "slotId": slot_id,
+            "availabilityEntityKey": availability_entity_key,
+            "providerId": provider_id,
+            "customerWallet": customer_wallet,
+            "reservationId": res_id,
+            "durationSec": duration_sec,
+        })
+        if on_chain and on_chain.get("success"):
+            record["txHash"] = on_chain.get("txHash")
+            record["entityKey"] = on_chain.get("entityKey")
+            logger.info("Broadcasted PendingSlotClaim on Arkiv Rabdi: entity %s, tx %s", on_chain.get("entityKey"), on_chain.get("txHash"))
+
+        self._reservations[res_id] = record
+        self._slot_reservations[slot_id] = record
+        logger.info("Created PendingSlotClaim on Arkiv: %s for slot %s (expires in %ds)", res_id, slot_id, duration_sec)
+        return record
+
+    def create_confirmed_reservation(
+        self,
+        slot_id: str,
+        payment_tx_id: str,
+        availability_entity_key: str = "",
+        provider_id: str = "",
+        customer_wallet: str = DEFAULT_PLATFORM_WALLET,
+        retention_days: int = 30,
+        reservation_id: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """
+        Create a SlotPay-owned ConfirmedReservation entity upon successful payment.
+        Owned by SlotPay platform wallet. Stored separately so 5-min claim expiry
+        does not remove successful booking.
+        """
+        res_id = reservation_id or f"reservation_{secrets.token_hex(4)}"
+        now = datetime.now(timezone.utc)
+        confirmed_at = now.isoformat().replace("+00:00", "Z")
+        expires_at = (now + timedelta(days=retention_days)).isoformat().replace("+00:00", "Z")
+
+        record = {
+            "type": "slot_reservation",
+            "reservationId": res_id,
+            "slotId": slot_id,
+            "availabilityEntityKey": availability_entity_key or f"0x{secrets.token_hex(32)}",
+            "providerId": provider_id or "provider_001",
+            "customerWallet": customer_wallet,
+            "status": "confirmed",
+            "paymentTransactionId": payment_tx_id,
+            "confirmedAt": confirmed_at,
+            "expiresAt": expires_at,
+            "expires_at_epoch": time.time() + (retention_days * 86400),
+            "owner": self.platform_wallet,
+        }
+
+        # Broadcast on-chain to Arkiv Rabdi testnet
+        on_chain = self._broadcast_on_chain({
+            "action": "create_confirmed_reservation",
+            "slotId": slot_id,
+            "availabilityEntityKey": availability_entity_key,
+            "providerId": provider_id,
+            "customerWallet": customer_wallet,
+            "paymentTransactionId": payment_tx_id,
+            "reservationId": res_id,
+            "retentionDays": retention_days,
+        })
+        if on_chain and on_chain.get("success"):
+            record["txHash"] = on_chain.get("txHash")
+            record["entityKey"] = on_chain.get("entityKey")
+            logger.info("Broadcasted ConfirmedReservation on Arkiv Rabdi: entity %s, tx %s", on_chain.get("entityKey"), on_chain.get("txHash"))
+
+        self._reservations[res_id] = record
+        self._slot_reservations[slot_id] = record
+        logger.info("Created ConfirmedReservation on Arkiv: %s for slot %s (tx: %s)", res_id, slot_id, payment_tx_id)
+        return record
+
+    def _parse_rpc_reservation_entity(self, rpc_entity: dict[str, Any]) -> dict[str, Any]:
+        """Convert Arkiv RpcEntity for slotpay.reservation.v1 into reservation record."""
+        attrs: dict[str, Any] = {}
+        raw_attrs = rpc_entity.get("attributes", {})
+        if isinstance(raw_attrs, list):
+            for item in raw_attrs:
+                if isinstance(item, dict) and "name" in item:
+                    attrs[item["name"]] = item.get("value")
+        elif isinstance(raw_attrs, dict):
+            for name, val in raw_attrs.items():
+                if isinstance(val, dict) and "value" in val:
+                    attrs[name] = val.get("value")
+                else:
+                    attrs[name] = val
+
+        return {
+            "type": "slot_reservation",
+            "reservationId": attrs.get("reservationId") or rpc_entity.get("key", ""),
+            "slotId": attrs.get("slotId") or "",
+            "availabilityEntityKey": attrs.get("availabilityEntityKey") or "",
+            "providerId": attrs.get("providerId") or "",
+            "customerWallet": attrs.get("customerWallet") or rpc_entity.get("owner", ""),
+            "status": attrs.get("status") or "pending",
+            "paymentTransactionId": attrs.get("paymentTransactionId"),
+            "createdAt": attrs.get("createdAt") or "",
+            "confirmedAt": attrs.get("confirmedAt"),
+            "expiresAt": attrs.get("expiresAt") or str(rpc_entity.get("expiresAt", "")),
+            "owner": rpc_entity.get("owner") or self.platform_wallet,
+        }
+
+    def query_reservations(self, slot_id: Optional[str] = None) -> list[dict[str, Any]]:
+        """
+        Retrieve active reservation records from Arkiv open database and platform registry.
+        Excludes expired pending claims (> 5 mins).
+        """
+        now = time.time()
+        active: dict[str, dict[str, Any]] = {}
+
+        # 1. Local platform reservations (purge expired pending claims)
+        for r_id, r in list(self._reservations.items()):
+            if r.get("status") == "pending" and r.get("expires_at_epoch", 0) <= now:
+                continue
+            active[r["slotId"]] = r
+
+        # 2. Query live Arkiv RPC for slotpay.reservation.v1 entities
+        rpc_raw = self._call_arkiv_rpc(f"arkiv.schema = str('{ARKIV_RESERVATION_SCHEMA}')")
+        if rpc_raw:
+            for item in rpc_raw:
+                parsed = self._parse_rpc_reservation_entity(item)
+                s_id = parsed.get("slotId")
+                if not s_id:
+                    continue
+                # If parsed is pending, check expiry
+                if parsed.get("status") == "pending":
+                    exp_iso = parsed.get("expiresAt", "")
+                    if exp_iso:
+                        try:
+                            exp_clean = exp_iso.replace("Z", "+00:00")
+                            exp_dt = datetime.fromisoformat(exp_clean)
+                            if exp_dt.timestamp() <= now:
+                                continue
+                        except Exception:
+                            pass
+                active[s_id] = parsed
+
+        results = list(active.values())
+        if slot_id:
+            results = [r for r in results if r.get("slotId") == slot_id]
+        return results
+
+    def is_slot_available(self, slot_id: str, reservations: Optional[list[dict[str, Any]]] = None) -> bool:
+        """
+        Determine whether a slot is genuinely available according to Arkiv reservation state.
+        A slot is NOT available if it has an unexpired pending claim or a confirmed reservation.
+        """
+        res_list = reservations if reservations is not None else self.query_reservations(slot_id)
+        now = time.time()
+
+        for r in res_list:
+            if r.get("slotId") != slot_id:
+                continue
+            status = r.get("status")
+            if status == "confirmed":
+                return False
+            if status == "pending":
+                exp_epoch = r.get("expires_at_epoch")
+                if exp_epoch is not None:
+                    if exp_epoch > now:
+                        return False
+                else:
+                    exp_iso = r.get("expiresAt", "")
+                    try:
+                        if exp_iso:
+                            exp_clean = exp_iso.replace("Z", "+00:00")
+                            exp_dt = datetime.fromisoformat(exp_clean)
+                            if exp_dt.timestamp() > now:
+                                return False
+                    except Exception:
+                        return False
+        return True
+
+    def filter_available_slots(self, slots: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """
+        Filter slots against active Arkiv reservations.
+        Excludes slots with an unexpired pending reservation.
+        Excludes slots with a confirmed reservation that is still relevant.
+        Returns only genuinely available slots.
+        """
+        active_reservations = self.query_reservations()
+        available = []
+        for s in slots:
+            s_id = s.get("id") or s.get("slotId") or s.get("slot_id")
+            if s_id and self.is_slot_available(str(s_id), active_reservations):
+                available.append(s)
+        return available
+
     def query_services(self, query_filter: ArkivQueryFilter) -> list[dict[str, Any]]:
         """
         Query services from the Arkiv open database matching the given criteria.
         Executes real JSON-RPC call against Rabdi testnet.
-        Returns ONLY entities residing in the Arkiv database.
+        Combines provider-owned availability records with active SlotPay reservation records:
+        - Excludes slots with an unexpired pending reservation.
+        - Excludes slots with a confirmed reservation.
+        Returns ONLY genuinely available services and slots.
         """
         query_str = build_arkiv_query_string(query_filter)
         logger.info("Executing Arkiv Query on Rabdi testnet: %s", query_str)
 
+        active_reservations = self.query_reservations()
+
         rpc_results = self._call_arkiv_rpc(query_str)
         if rpc_results:
             logger.info("Arkiv RPC returned %d live entities from Rabdi testnet.", len(rpc_results))
-            return [s for s in rpc_results if self._matches_filter(s, query_filter)]
+            matches = [s for s in rpc_results if self._matches_filter(s, query_filter)]
+            return [s for s in matches if self.is_slot_available(str(s.get("id", "")), active_reservations)]
 
         # If no service listings exist, discover open providers from live Arkiv availability entities on Rabdi testnet
-        avail_results = self._call_arkiv_rpc("arkiv.schema = str('slotpay.availability.v1')")
+        avail_results = self._call_arkiv_rpc(f"arkiv.schema = str('{ARKIV_AVAILABILITY_SCHEMA}')")
         if avail_results:
             logger.info("Arkiv RPC discovered %d live availability entities on Rabdi.", len(avail_results))
-            return [s for s in avail_results if self._matches_filter(s, query_filter)]
+            matches = [s for s in avail_results if self._matches_filter(s, query_filter)]
+            return [s for s in matches if self.is_slot_available(str(s.get("id", "")), active_reservations)]
 
         return []
+
+    def get_service_by_id_or_key(self, service_id: str) -> Optional[dict[str, Any]]:
+        """Retrieve a service entity by ID or Arkiv entity key."""
+        if not service_id:
+            return None
+        # Try direct RPC query by entity key
+        rpc_raw = self._call_arkiv_rpc(f"arkiv.key = str('{service_id}')")
+        if rpc_raw:
+            return rpc_raw[0]
+        # Try finding in availability entities on Rabdi testnet
+        avail_raw = self._call_arkiv_rpc(f"arkiv.schema = str('{ARKIV_AVAILABILITY_SCHEMA}')")
+        if avail_raw:
+            for item in avail_raw:
+                if str(item.get("id", "")).lower() == service_id.lower() or str(item.get("entityKey", "")).lower() == service_id.lower():
+                    return item
+        return None
 
     def _matches_filter(self, svc: dict[str, Any], f: ArkivQueryFilter) -> bool:
         """Filter a parsed service record against an ArkivQueryFilter."""

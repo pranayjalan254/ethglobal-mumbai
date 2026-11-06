@@ -32,4 +32,5 @@ class QueryParserState(TypedDict, total=False):
     payment_settled: bool
     requires_approval: bool
     settlement_receipt: Optional[dict[str, Any]]
+    confirmed_reservation: Optional[dict[str, Any]]
     error_message: Optional[str]

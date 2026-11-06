@@ -51,8 +51,10 @@ export function PublishDrawer({ service, onClose }: { service: Service | null; o
           toast.error(
             isChainError
               ? "Wrong network — please switch to Arkiv Rabdi (chain 7794095) in your wallet and try again."
-              : `On-chain transaction notice: ${msg.slice(0, 120)}`
+              : `On-chain transaction failed: ${msg.slice(0, 120)}`
           );
+          setStep(-1);
+          return;
         }
       }
 

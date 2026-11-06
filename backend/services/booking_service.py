@@ -128,9 +128,16 @@ class BookingService:
         # Prepend to list
         self._bookings.insert(0, booking_record)
 
-        # Burn slot from Arkiv
-        if slot_id:
-            availability_service.burn_slot(slot_id)
+        # Record SlotPay-owned ConfirmedReservation on Arkiv (never modifies/deletes provider entities)
+        effective_slot_id = slot_id or f"{service_id}-{slot_start}"
+        buyer_wallet = buyer if buyer.startswith("0x") else "0x71C2a0b3C4E5f61A2b3f4E5d6C7b8A9F0e1D2c3B"
+        availability_service.confirm_slot_reservation(
+            slot_id=effective_slot_id,
+            tx_id=confirmed_tx_id,
+            customer_wallet=buyer_wallet,
+            service_id=service_id,
+            provider_id=svc.get("provider", {}).get("name", "Provider"),
+        )
 
         return receipt
 
