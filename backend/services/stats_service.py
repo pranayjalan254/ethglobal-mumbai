@@ -44,6 +44,32 @@ class StatsService:
             })
         return txs
 
+    def get_wallet_balance(self, wallet: Optional[str] = None) -> dict[str, Any]:
+        """Fetch live balance from Hedera mirror node or return default."""
+        if not wallet:
+            return {"hbar": 0.0, "usdc": 0.0}
+
+        import json
+        import urllib.request
+        clean_wallet = wallet.strip()
+        url = f"https://testnet.mirrornode.hedera.com/api/v1/accounts/{clean_wallet}"
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=4) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                bal_obj = data.get("balance", {})
+                tinybars = bal_obj.get("balance", 0)
+                hbar = tinybars / 100_000_000.0
+                usdc = 0.0
+                for tok in bal_obj.get("tokens", []):
+                    if tok.get("token_id") == "0.0.429274":
+                        usdc = tok.get("balance", 0) / 1_000_000.0
+                return {"hbar": round(hbar, 4), "usdc": round(usdc, 2)}
+        except Exception:
+            pass
+
+        return {"hbar": 0.0, "usdc": 0.0}
+
 
 # Singleton instance
 stats_service = StatsService()

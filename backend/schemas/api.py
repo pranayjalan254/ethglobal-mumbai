@@ -71,6 +71,8 @@ class ServiceInput(BaseModel):
 
 class ServicePublishInput(BaseModel):
     days: int = 30
+    entity_key: Optional[str] = None
+    tx_ref: Optional[str] = None
 
 
 class ServicePublishResponse(BaseModel):
@@ -120,7 +122,7 @@ class PaymentRequirementsSchema(BaseModel):
     token: str
     network: str
     payTo: str = Field(..., alias="payTo")
-    feePayer: str = Field("0.0.987654", alias="feePayer")
+    feePayer: str = Field("0.0.9185802", alias="feePayer")
     facilitator: str
     resource: str
     maxTimeoutSeconds: int = Field(300, alias="maxTimeoutSeconds")

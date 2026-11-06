@@ -3,7 +3,9 @@ import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { ArrowUp, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth";
 import { streamAgentChat, STEP_TITLES, type AgentStep, type AgentStepId, type PaymentRequirements, type Receipt } from "@/lib/api";
+import { executeAutonomousHederaPayment } from "@/lib/x402-hedera";
 import { dt, money } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Countdown, Eyebrow, Mono, ProgressLine, SquareSwitch, TxLink, TypeTag } from "@/components/sp/primitives";
@@ -28,9 +30,10 @@ interface AgentMsg {
 }
 
 function Agent() {
+  const { walletAddress, getEthereumProvider } = useAuth();
   const [msgs, setMsgs] = useState<AgentMsg[]>([]);
   const [input, setInput] = useState("");
-  const [limit, setLimit] = useState(25);
+  const [limit, setLimit] = useState(5.0);
   const [autoApprove, setAutoApprove] = useState(true);
   const [busy, setBusy] = useState(false);
   const bottom = useRef<HTMLDivElement>(null);
@@ -45,15 +48,55 @@ function Agent() {
     setMsgs((m) => [...m, { id: "u" + Date.now(), role: "user", text, steps: {} }, { id: aid, role: "agent", text: "", steps: {} }]);
     setInput("");
     setBusy(true);
+
+    let realTxHash: string | null = null;
+
     await streamAgentChat(
       text,
       { limit, autoApprove },
       (e) => {
+        if (realTxHash && e.step?.id === "pay" && e.step.detail) {
+          (e.step.detail as any).txId = realTxHash;
+          (e.step.detail as any).explorerUrl = `https://hashscan.io/testnet/transaction/${realTxHash}`;
+        }
+        if (realTxHash && e.receipt) {
+          e.receipt.txId = realTxHash;
+        }
         if (e.type === "step" && e.step) patch(aid, (m) => ({ ...m, steps: { ...m.steps, [e.step!.id]: e.step } }));
         if (e.type === "text") patch(aid, (m) => ({ ...m, text: e.text ?? "" }));
         if (e.type === "done") patch(aid, (m) => ({ ...m, done: true, receipt: e.receipt }));
       },
       (amount) => new Promise<boolean>((resolve) => patch(aid, (m) => ({ ...m, approval: { amount, resolve } }))),
+      undefined,
+      walletAddress || undefined,
+      async (payment) => {
+        try {
+          const provider = await getEthereumProvider(296);
+          const res = await executeAutonomousHederaPayment({
+            challenge: {
+              status: 402,
+              scheme: "exact",
+              network: "hedera-testnet",
+              amount: payment.amount,
+              currency: "HBAR",
+              token: "HBAR",
+              payTo: payment.payTo,
+              feePayer: payment.feePayer || "0.0.9185802",
+              facilitator: payment.facilitator,
+              resource: payment.resource,
+              maxTimeoutSeconds: payment.maxTimeoutSeconds,
+            },
+            approvedBudget: limit,
+            clientWallet: walletAddress || "0x5d8d26cbea05632abf3a3cf87e1f3806ad34de77",
+            provider,
+          });
+          realTxHash = res.txId;
+          return res.txId;
+        } catch (payError) {
+          console.error("[SlotPay] Real on-chain Hedera payment error:", payError);
+          return "";
+        }
+      },
     );
     setBusy(false);
   }
@@ -111,7 +154,7 @@ function Agent() {
           <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2">
             <label className="inline-flex items-center gap-2 text-[12.5px]">
               <span className="eyebrow">Spending limit</span>
-              <input type="number" min={1} value={limit} onChange={(e) => setLimit(Number(e.target.value))} className="mono w-16 border-b border-hairline bg-transparent px-1 py-0.5 text-right outline-none focus:border-ink" />
+              <input type="number" min={0.01} step="0.1" value={limit} onChange={(e) => setLimit(Number(e.target.value))} className="mono w-16 border-b border-hairline bg-transparent px-1 py-0.5 text-right outline-none focus:border-ink" />
               <span className="mono text-ink-muted">USDC per booking</span>
             </label>
             <SquareSwitch checked={autoApprove} onChange={setAutoApprove} label="Auto-approve payments within limit" />

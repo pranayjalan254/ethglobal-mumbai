@@ -70,7 +70,7 @@ function Availability() {
                   toast.error(`On-chain notice: ${onChainErr?.message || onChainErr}`, { id: "arkiv-avail-tx" });
                 }
               }
-              const r = await publishAvailability([...cells]);
+              const r = await publishAvailability([...cells], walletAddress || undefined);
               if (!txHash) {
                 toast(`Published ${r.count} hourly blocks to Arkiv`);
               }

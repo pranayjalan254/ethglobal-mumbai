@@ -9,6 +9,7 @@ from routers.agent import router as agent_router
 from routers.swarm import router as swarm_router
 from routers.provider import router as provider_router
 from routers.wallet import router as wallet_router
+from routers.x402 import router as x402_router
 
 __all__ = [
     "services_router",
@@ -18,5 +19,6 @@ __all__ = [
     "swarm_router",
     "provider_router",
     "wallet_router",
+    "x402_router",
 ]
 

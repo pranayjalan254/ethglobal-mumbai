@@ -146,16 +146,11 @@ def _fallback_heuristic_extraction(raw_query: str, ref_date: str) -> dict[str, A
     elif any(k in lowered for k in ["ai agent", "autonomous", "automated", "ai code-review"]):
         provider_type = "ai"
 
-    # Provider name detection
-    known_providers = [
-        "Anika Rao", "Marcus Lindqvist", "Sora Ito", "Priya Menon",
-        "Atlas Research", "Reviewer-7", "Tomás Ferreira", "Ledgerline",
-    ]
+    # Provider name detection — extract provider name if specified like 'from <Name>' or '<Name>'
     provider_name = None
-    for p in known_providers:
-        if p.lower() in lowered or any(part.lower() in lowered for part in p.split() if len(part) > 3):
-            provider_name = p
-            break
+    from_match = re.search(r"\bfrom\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\b", text)
+    if from_match:
+        provider_name = from_match.group(1)
 
     # Price detection ($20, under $20, up to $150, 20 USDC)
     max_price = None

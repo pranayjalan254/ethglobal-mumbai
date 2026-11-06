@@ -6,7 +6,7 @@ export type { ProviderProfile, Role, StoredAuth };
 export interface PrivyBridgeApi {
   login: (method: "email" | "wallet") => void;
   logout: () => void | Promise<void>;
-  getEthereumProvider?: () => Promise<any>;
+  getEthereumProvider?: (chainId?: number) => Promise<any>;
 }
 
 export interface AuthContextValue {
@@ -18,7 +18,7 @@ export interface AuthContextValue {
   usingPrivy: boolean;
   login: (method?: "email" | "wallet") => void;
   logout: () => Promise<void>;
-  getEthereumProvider: () => Promise<any>;
+  getEthereumProvider: (chainId?: number) => Promise<any>;
   setRole: (r: Role) => void;
   setProfile: (p: ProviderProfile) => void;
   /** internal: called by the Privy bridge */

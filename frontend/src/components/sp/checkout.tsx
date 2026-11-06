@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { Button } from "@/components/ui/button";
 import { claimSlot, confirmBooking, createBooking, type PaymentRequirements, type Receipt, type Service, type Slot } from "@/lib/api";
 import { executeAutonomousHederaPayment } from "@/lib/x402-hedera";
+import { useAuth } from "@/lib/auth";
 import { dt, money } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Countdown, Eyebrow, Mono, ProgressLine } from "./primitives";
@@ -13,6 +14,7 @@ const PHASES = ["Claiming", "Awaiting payment challenge", "Signing", "Settling",
 
 export function Checkout({ service, slot, onClose }: { service: Service; slot: Slot | null; onClose: () => void }) {
   const qc = useQueryClient();
+  const { walletAddress, getEthereumProvider } = useAuth();
   const [phase, setPhase] = useState(-1);
   const [claimUntil, setClaimUntil] = useState<string | null>(null);
   const [payment, setPayment] = useState<PaymentRequirements | null>(null);
@@ -33,6 +35,14 @@ export function Checkout({ service, slot, onClose }: { service: Service; slot: S
     setPayment(b.payment);
     await new Promise((r) => setTimeout(r, 600));
     setPhase(2);
+
+    let ethProvider: any = null;
+    try {
+      ethProvider = await getEthereumProvider(296);
+    } catch (e) {
+      console.warn("Could not get Hedera provider:", e);
+    }
+
     const settlement = await executeAutonomousHederaPayment({
       challenge: {
         status: 402,
@@ -42,13 +52,14 @@ export function Checkout({ service, slot, onClose }: { service: Service; slot: S
         currency: service.currency,
         token: b.payment.token,
         payTo: b.payment.payTo,
-        feePayer: "0.0.987654",
+        feePayer: b.payment.feePayer || "0.0.9185802",
         facilitator: b.payment.facilitator,
         resource: b.payment.resource,
         maxTimeoutSeconds: b.payment.maxTimeoutSeconds,
       },
       approvedBudget: service.price * 1.5,
-      clientWallet: "0x71c2a0b3c4e5f61a2b3f4e5d6c7b8a9f0e1d2c3b",
+      clientWallet: walletAddress || "0x5d8d26cbea05632abf3a3cf87e1f3806ad34de77",
+      provider: ethProvider,
     });
     setPhase(3);
     const r = await confirmBooking(service, slot.start, settlement.txId);

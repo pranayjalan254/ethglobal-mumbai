@@ -18,3 +18,9 @@ def get_wallet_transactions(wallet: Optional[str] = Query(None)) -> list[dict]:
     """Retrieve wallet transaction ledger entries."""
     return stats_service.get_wallet_transactions(wallet)
 
+
+@router.get("/balance")
+def get_wallet_balance(wallet: Optional[str] = Query(None)) -> dict:
+    """Retrieve live Hedera balance for the wallet."""
+    return stats_service.get_wallet_balance(wallet)
+

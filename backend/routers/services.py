@@ -95,7 +95,9 @@ def update_service(
 def publish_service(service_id: str, body: Optional[ServicePublishInput] = None) -> dict:
     """Publish service to the Arkiv open database with time-scoping."""
     days = body.days if body else 30
-    res = service_store.publish_service(service_id, days)
+    entity_key = body.entity_key if body else None
+    tx_ref = body.tx_ref if body else None
+    res = service_store.publish_service(service_id, days, entity_key=entity_key, tx_ref=tx_ref)
     if not res:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

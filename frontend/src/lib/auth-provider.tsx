@@ -65,9 +65,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await bridge.current?.logout();
         update({ walletAddress: null, email: null });
       },
-      getEthereumProvider: async () => {
+      getEthereumProvider: async (chainId?: number) => {
         if (bridge.current?.getEthereumProvider) {
-          return await bridge.current.getEthereumProvider();
+          return await bridge.current.getEthereumProvider(chainId);
         }
         if (typeof window !== "undefined" && (window as any).ethereum) {
           return (window as any).ethereum;

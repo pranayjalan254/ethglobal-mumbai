@@ -46,8 +46,8 @@ class TestHederaX402Payment(unittest.TestCase):
         )
         mock_settlement = SettlementResult(
             success=True,
-            tx_id="0.0.987654@1700000000.000000001",
-            hashscan_url="https://hashscan.io/testnet/transaction/0.0.987654@1700000000.000000001",
+            tx_id="0.0.9185802@1700000000.000000001",
+            hashscan_url="https://hashscan.io/testnet/transaction/0.0.9185802@1700000000.000000001",
             amount_settled=18.0,
             currency="USDC",
             provider_wallet=self.provider_wallet,

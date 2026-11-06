@@ -100,7 +100,7 @@ class X402PaymentRequirement(BaseModel):
     token: str = Field("USDC (0.0.456858)", description="Token specification (USDC or HBAR)")
     network: str = Field("hedera-testnet", description="Target Hedera network")
     pay_to: str = Field(..., description="Provider's Hedera Account ID (0.0.xxxxx)")
-    facilitator: str = Field("https://facilitator.slotpay.network", description="Hedera x402 facilitator endpoint")
+    facilitator: str = Field("https://x402.org/facilitator", description="Hedera x402 facilitator endpoint")
     resource: str = Field(..., description="Booking endpoint path being accessed")
     max_timeout_seconds: int = Field(300, description="Quote validity period (5 minutes)")
     slot_entity_key: str = Field(..., description="Slot reserved during checkout")

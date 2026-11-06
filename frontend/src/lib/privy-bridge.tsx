@@ -9,6 +9,7 @@ import {
 } from "@privy-io/react-auth";
 import { useAuth } from "./auth";
 import { arkivChain } from "./arkiv";
+import { hederaTestnet } from "viem/chains";
 
 function Bridge() {
   const { ready, authenticated, user } = usePrivy();
@@ -63,20 +64,22 @@ function Bridge() {
       logout: async () => {
         logout();
       },
-      getEthereumProvider: async () => {
+      getEthereumProvider: async (targetChainId?: number) => {
         const targetWallet =
           wallets.find(
             (w) => w.address.toLowerCase() === auth.walletAddress?.toLowerCase(),
           ) ?? wallets[0];
 
+        const reqChainId = targetChainId ?? arkivChain.id;
+
         if (targetWallet) {
           try {
             const currentChain = targetWallet.chainId;
             if (
-              currentChain !== `eip155:${arkivChain.id}` &&
-              (currentChain as any) !== arkivChain.id
+              currentChain !== `eip155:${reqChainId}` &&
+              (currentChain as any) !== reqChainId
             ) {
-              await targetWallet.switchChain(arkivChain.id);
+              await targetWallet.switchChain(reqChainId);
             }
           } catch (switchErr) {
             console.warn("[SlotPay] Privy switchChain notice:", switchErr);
@@ -120,11 +123,12 @@ export default function PrivyBridge({ appId }: { appId: string }) {
     <PrivyProvider
       appId={appId}
       config={{
-        defaultChain: arkivChain,
-        supportedChains: [arkivChain],
+        defaultChain: hederaTestnet,
+        supportedChains: [arkivChain, hederaTestnet],
         // Supported login methods shown in the Privy modal
         loginMethods: ["email", "wallet"],
         embeddedWallets: {
+          showWalletUIs: false,
           ethereum: {
             // Automatically create an embedded wallet for users who sign in
             // without an existing wallet (e.g. Google OAuth users)

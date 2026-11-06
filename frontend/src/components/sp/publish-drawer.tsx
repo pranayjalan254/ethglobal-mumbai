@@ -47,7 +47,7 @@ export function PublishDrawer({ service, onClose }: { service: Service | null; o
         }
       }
 
-      const res = await publishService(service.id, days);
+      const res = await publishService(service.id, days, entityKey, txHash);
       setResult({
         entity_key: entityKey || res.entity_key,
         tx_ref: txHash || res.tx_ref,

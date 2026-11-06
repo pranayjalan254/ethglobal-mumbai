@@ -22,6 +22,7 @@ from routers import (
     services_router,
     swarm_router,
     wallet_router,
+    x402_router,
 )
 
 # -----------------------------------------------------------------------------
@@ -50,6 +51,7 @@ app.include_router(agent_router)
 app.include_router(swarm_router)
 app.include_router(provider_router)
 app.include_router(wallet_router)
+app.include_router(x402_router)
 
 
 @app.get("/")

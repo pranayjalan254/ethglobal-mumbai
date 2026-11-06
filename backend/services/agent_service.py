@@ -14,7 +14,6 @@ from typing import Any, AsyncGenerator, Optional
 from agent.graph import execute_autonomous_agent
 from agent.x402_hedera import hedera_x402_engine
 from services.booking_service import booking_service, generate_tx_id
-from services.service_store import service_store
 
 logger = logging.getLogger(__name__)
 
@@ -89,9 +88,9 @@ class AgentService:
         elif arkiv_filter and arkiv_filter.category:
             skill_label = f"{arkiv_filter.category} specialist"
 
-        budget_str = f"under {limit:.0f}.00 USDC"
+        budget_str = f"under {limit:.2f} HBAR"
         if parsed and parsed.agent_decision.auto_approve_budget:
-            budget_str = f"under {parsed.agent_decision.auto_approve_budget:.0f}.00 USDC"
+            budget_str = f"under {parsed.agent_decision.auto_approve_budget:.2f} HBAR"
 
         date_str = "Next available"
         if arkiv_filter and arkiv_filter.time_window and arkiv_filter.time_window.target_date:
@@ -120,9 +119,6 @@ class AgentService:
         await asyncio.sleep(0.3)
 
         discovered = agent_state.get("discovered_services") or []
-        if not discovered:
-            # Fallback to store query
-            discovered = service_store.list_services()
 
         query_desc = f"category:{arkiv_filter.category or 'Any'}" if arkiv_filter else "open services"
         if arkiv_filter and arkiv_filter.skills:
@@ -137,6 +133,11 @@ class AgentService:
         }
         yield _format_sse(step_event("discover", "complete", discover_detail))
         await asyncio.sleep(0.4)
+
+        if not discovered:
+            yield _format_sse({"type": "text", "text": "No available providers found on Arkiv matching your criteria. Try adjusting the budget, category, or date."})
+            yield _format_sse({"type": "done"})
+            return
 
         # -------------------------------------------------------------
         # 3. COMPARE STEP
@@ -192,22 +193,24 @@ class AgentService:
         # -------------------------------------------------------------
         # 5. PAY STEP (Hedera x402)
         # -------------------------------------------------------------
-        amount = float(selected.get("price", 18.0)) if selected else 18.0
-        currency = selected.get("currency", "USDC") if selected else "USDC"
+        amount = float(selected.get("price", 0.05)) if selected else 0.05
+        currency = selected.get("currency", "HBAR") if selected else "HBAR"
         provider_wallet = (
             selected.get("provider_wallet")
             or selected.get("provider", {}).get("wallet", "0x3f9a8c21d7b04e6a91c2f5e7d8a0b3c4e5f61a2b")
         )
 
+        from agent.x402_hedera import DEFAULT_FACILITATOR_ACCOUNT, DEFAULT_FACILITATOR_URL, DEFAULT_USDC_TOKEN_ID
+
         payment_challenge = {
             "status": 402,
             "scheme": "exact",
             "amount": f"{amount:.2f}",
-            "token": f"{currency} (0.0.429274)",
-            "network": "hedera-testnet",
+            "token": f"{currency} ({DEFAULT_USDC_TOKEN_ID})" if currency == "USDC" else "HBAR",
+            "network": "hedera:testnet",
             "payTo": provider_wallet,
-            "feePayer": "0.0.987654",
-            "facilitator": "https://facilitator.slotpay.network",
+            "feePayer": DEFAULT_FACILITATOR_ACCOUNT,
+            "facilitator": DEFAULT_FACILITATOR_URL,
             "resource": f"/api/bookings/{selected.get('id', 's1')}",
             "maxTimeoutSeconds": 300,
         }
