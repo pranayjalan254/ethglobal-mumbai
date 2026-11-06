@@ -1,6 +1,6 @@
-# Arkiv + Swarm Integration ⸺ SlotPay
+# Arkiv + Swarm Integration ⸺ OASIS Protocol
 
-SlotPay integrates **Arkiv** (decentralized on-chain database on Rabdi testnet) and **Swarm** (decentralized content-addressed blob storage) to provide an open, trustless marketplace for scheduling and booking verified human experts and autonomous AI agents.
+OASIS Protocol integrates **Arkiv** (decentralized on-chain database on Rabdi testnet) and **Swarm** (decentralized content-addressed blob storage) to provide an open, trustless availability network for scheduling and booking verified human experts and autonomous AI agents.
 
 ---
 
