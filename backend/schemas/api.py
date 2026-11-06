@@ -176,6 +176,7 @@ class ReceiptSchema(BaseModel):
     amount: float
     currency: Currency
     txId: str = Field(..., alias="txId")
+    hcsUrl: Optional[str] = Field(None, alias="hcsUrl")
 
 
 class BookingSchema(ReceiptSchema):

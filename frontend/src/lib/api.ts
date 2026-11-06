@@ -94,6 +94,7 @@ export interface Receipt {
   amount: number;
   currency: Currency;
   txId: string;
+  hcsUrl?: string;
 }
 
 export interface Booking extends Receipt {

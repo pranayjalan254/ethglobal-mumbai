@@ -11,6 +11,11 @@ export function ReceiptView({ receipt, showLink = true }: { receipt: Receipt; sh
     ["Booking reference", <span className="inline-flex items-center gap-1"><span className="mono">{receipt.bookingRef}</span><CopyButton value={receipt.bookingRef} /></span>],
     ["Amount paid", <span className="mono text-accent">{money(receipt.amount, receipt.currency)}</span>],
     ["Hedera transaction", <TxLink txId={receipt.txId} />],
+    ...(receipt.hcsUrl ? [["HCS Audit Log", (
+      <a href={receipt.hcsUrl} target="_blank" rel="noreferrer" className="mono link-u text-accent text-[12.5px]">
+        Topic {receipt.hcsUrl.split("/topic/")[1]?.split("?")[0] || "HashScan"} ↗
+      </a>
+    )] as [string, React.ReactNode]] : []),
   ];
   return (
     <div className="border border-ink bg-surface-raised">

@@ -17,6 +17,7 @@ from agent.x402_hedera import (
     hedera_x402_engine,
 )
 from services.availability_service import availability_service
+from services.hcs_service import publish_booking_to_hcs
 from services.service_store import service_store
 
 
@@ -127,6 +128,23 @@ class BookingService:
 
         # Prepend to list
         self._bookings.insert(0, booking_record)
+
+        # Publish tamper-evident audit record to HCS (native Hedera service #2)
+        hcs_url = publish_booking_to_hcs({
+            "bookingRef": booking_ref,
+            "serviceId": service_id,
+            "service": svc["title"],
+            "provider": svc["provider"]["name"],
+            "buyer": buyer,
+            "amount": float(svc["price"]),
+            "currency": svc["currency"],
+            "txId": confirmed_tx_id,
+            "slotStart": slot_start,
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+        })
+        if hcs_url:
+            receipt["hcsUrl"] = hcs_url
+            booking_record["hcsUrl"] = hcs_url
 
         # Record SlotPay-owned ConfirmedReservation on Arkiv (never modifies/deletes provider entities)
         effective_slot_id = slot_id or f"{service_id}-{slot_start}"
