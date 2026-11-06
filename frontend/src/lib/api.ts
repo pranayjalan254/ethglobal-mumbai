@@ -164,6 +164,38 @@ export async function http<T>(path: string, init?: RequestInit): Promise<T> {
 // ---------------------------------------------------------------- endpoints linked with Arkiv & FastAPI
 
 export function arkivRecordToService(rec: ArkivServiceRecord): Service {
+  const documents: { name: string; swarmRef: string }[] = [];
+  if (rec.swarmRef) {
+    documents.push({
+      name: "Verified Portfolio & Credentials",
+      swarmRef: rec.swarmRef,
+    });
+  }
+
+  // Enrich with locally uploaded & confirmed portfolio documents
+  if (typeof window !== "undefined") {
+    try {
+      const saved = localStorage.getItem("slotpay_portfolio_files");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          for (const item of parsed) {
+            if (
+              item.swarmRef &&
+              item.swarmRef !== "upload_failed" &&
+              !documents.some((d) => d.swarmRef === item.swarmRef)
+            ) {
+              documents.push({
+                name: item.name || "Verified Portfolio & Credentials",
+                swarmRef: item.swarmRef,
+              });
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+
   return {
     id: rec.id,
     title: rec.title,
@@ -183,20 +215,14 @@ export function arkivRecordToService(rec: ArkivServiceRecord): Service {
       rating: rec.rating,
       reviews: 1,
       credentials: ["Arkiv Verified Provider"],
-      documents: rec.swarmRef
-        ? [
-            {
-              name: "Portfolio & Verified Credentials",
-              swarmRef: rec.swarmRef,
-            },
-          ]
-        : [],
+      documents,
     },
     status: "published",
     entityKey: rec.entityKey,
     expiresAt: rec.expiresAt,
     nextSlot: rec.nextSlot,
     location: "remote",
+    swarmRef: rec.swarmRef || documents[0]?.swarmRef,
   };
 }
 
@@ -307,7 +333,24 @@ export async function getService(id: string): Promise<Service> {
           rating: 5.0,
           reviews: 1,
           credentials: ["Arkiv Verified Provider"],
-          documents: [],
+          documents: (() => {
+          if (typeof window === "undefined") return [];
+          try {
+            const raw = localStorage.getItem("slotpay_portfolio_files");
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed)) {
+                return parsed
+                  .filter((x) => x.swarmRef && x.swarmRef !== "upload_failed")
+                  .map((x) => ({
+                    name: x.name || "Verified Portfolio Document",
+                    swarmRef: x.swarmRef,
+                  }));
+              }
+            }
+          } catch {}
+          return [];
+        })(),
         },
         status: "published",
         nextSlot: new Date().toISOString(),

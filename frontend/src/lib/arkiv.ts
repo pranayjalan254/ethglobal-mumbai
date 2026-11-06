@@ -381,6 +381,18 @@ export async function getArkivService(entityKey: string): Promise<ArkivServiceRe
         const pName = (availEntity.providerName?.value as string) || "Verified Provider";
         const dur = Number(availEntity.durationMin?.value || 60);
         const slot = (availEntity.nextSlot?.value as string) || new Date().toISOString();
+
+        let swarmRef: string | undefined = undefined;
+        try {
+          if (pWallet) {
+            const svcQuery = client.select().from(ServicesSchema).where(eq("providerWallet", addr(pWallet as `0x${string}`)));
+            const svcRes = await svcQuery.limit(1).fetch();
+            if (svcRes.entities?.[0]?.swarmRef?.value) {
+              swarmRef = svcRes.entities[0].swarmRef.value as string;
+            }
+          }
+        } catch {}
+
         return {
           id: availEntity.$key as string,
           entityKey: availEntity.$key as string,
@@ -396,6 +408,7 @@ export async function getArkivService(entityKey: string): Promise<ArkivServiceRe
           description: `Open availability published directly to Arkiv Rabdi testnet. Hourly blocks: ${availEntity.dayHour?.value || "Flexible"}`,
           nextSlot: slot,
           rating: 5.0,
+          swarmRef,
           expiresAt: availEntity.$expiresAt ? availEntity.$expiresAt.toString() : undefined,
           isArkivEntity: true,
         };
