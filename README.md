@@ -191,14 +191,18 @@ A key architectural principle of OASIS is that **providers retain ownership of t
 To test that Arkiv is live and returns filtered services directly from the Rabdi testnet:
 
 ```bash
-curl -X POST "https://rpc.rabdi.db-chain.testnet.arkiv.network" \
+curl -X POST "https://rpc.rabdi.db-chain.testnet.arkiv.network/ark_live_FkBVVU1GhNDlAKQwhXeZSxI5gs6BI7dR" \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
     "method": "arkiv_query",
-    "params": {
-      "query": "arkiv.schema = str(\x27slotpay.services.v1\x27) AND category = str(\x27Engineering\x27) AND price <= dec(50.00)"
-    },
+    "params": [
+      "arkiv.schema = str('\''slotpay.services.v1'\'') AND category = str('\''Design'\'') AND price <= dec(50.00)",
+      {
+        "select": { "key": true, "owner": true, "expiresAt": true, "attributes": true },
+        "limit": "0x14"
+      }
+    ],
     "id": 1
   }'
 ```
