@@ -146,7 +146,7 @@ function Agent() {
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(input); } }}
               placeholder="Describe the service, budget and timing"
               className="flex-1 resize-none bg-transparent px-4 py-3 text-[14.5px] outline-none placeholder:text-ink-muted"
-            />OASIS
+            />
             <Button type="submit" size="icon" className="m-2 h-10 w-10 self-end" disabled={busy || !input.trim()} aria-label="Send">
               <ArrowUp />
             </Button>

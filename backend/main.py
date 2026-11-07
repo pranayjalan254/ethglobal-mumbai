@@ -78,7 +78,7 @@ def run_autonomous_demo() -> None:
     print("=" * 80)
     print(" SlotPay Autonomous Commerce: Arkiv Discovery & Hedera x402 Payments")
     print(f" Reference Date: {ref_date}")
-    print("=OASIS
+    print("=OASIS")
 
     # Scenario 1: Autonomous Flow under Approved Budget
     query_1 = (

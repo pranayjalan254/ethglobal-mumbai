@@ -175,7 +175,7 @@ def get_service(service_id: str) -> dict:
         for d in owner_docs:
             if not any(ed.get("swarmRef") == d.get("swarmRef") for ed in existing_docs):
                 existing_docs.append(d)
-        if existing_docs and not svc.get("swarmRef")OASIS
+        if existing_docs and not svc.get("swarmRef"):
             svc["swarmRef"] = existing_docs[0]["swarmRef"]
 
     return svc

@@ -103,16 +103,15 @@ OASIS turns scheduling and hiring into an autonomous, discrete request-pay-grant
 4. **Instant Unlock**: Upon verified settlement, the API returns the booking receipt, room access link, and transaction proof.
 
 ### Qualification Checklist & Live Proofs
-- [x] **x402-Protected Endpoint**: `POST /api/x402/consultation/{service_id}` (Source: [`backend/routers/x402.py`](file:///home/pranay/Projects/ethglobal-mumbai/backend/routers/x402.py)).
-- [x] **Autonomous Agent Completion**: The LangGraph agent discovers providers on Arkiv, checks availability, satisfies the 402 challenge, and completes payment end-to-end with no human approval (Source: [`backend/services/agent_service.py`](file:///home/pranay/Projects/ethglobal-mumbai/backend/services/agent_service.py)).
+- [x] **x402-Protected Endpoint**: `POST /api/x402/consultation/{service_id}` (Source: [`backend/routers/x402.py`](https://github.com/pranayjalan254/ethglobal-mumbai/blob/main/backend/agent/x402_hedera.py)).
+- [x] **Autonomous Agent Completion**: The LangGraph agent discovers providers on Arkiv, checks availability, satisfies the 402 challenge, and completes payment end-to-end with no human approval (Source: [`backend/services/agent_service.py`](https://github.com/pranayjalan254/ethglobal-mumbai/blob/main/backend/services/agent_service.py)).
 - [x] **Settled Hedera Transaction ID**:
-  - **Transaction ID**: [`0.0.9185802@1793972178.825285911`](https://hashscan.io/testnet/transaction/0.0.9185802%401793972178.825285911)
-  - **Explorer Link**: [https://hashscan.io/testnet/transaction/0.0.9185802@1793972178.825285911](https://hashscan.io/testnet/transaction/0.0.9185802%401793972178.825285911)
-  - **EVM Client Settlement Hash**: `0xf820241a2a20105cc136c40919b116745b222e6b4c9098bd5df2fc1ee423d73f` on Hedera Testnet (Chain ID 296).
+  - **Transaction ID**: [`0.0.7314364@1794019792.324902572`](https://hashscan.io/testnet/transaction/0xa8df03d28e582a66c1012b71ae58a7d7dc00208b940e44bbc5351272621874e6)
+  - **EVM Client Settlement Hash**: `0x6c1599a70f29a7109af852e7dbedadc625282e4515effa39123861c653d44bcee92ea68caf7e64d365aa1d140791558f` on Hedera Testnet (Chain ID 296).
 
 ### Extra Points Checklist
-- ✅ **Spending Controls for Agents**: Strict `BudgetExceededError` thresholds in [`backend/agent/x402_hedera.py`](file:///home/pranay/Projects/ethglobal-mumbai/backend/agent/x402_hedera.py).
-- ✅ **HCS Spending & Booking Audit Log**: Every completed payment submits an immutable record to Hedera Consensus Service Topic `0.0.11339796`.
+- ✅ **Spending Controls for Agents**: Strict `BudgetExceededError` thresholds in [`backend/agent/x402_hedera.py`](https://github.com/pranayjalan254/ethglobal-mumbai/blob/main/backend/agent/x402_hedera.py).
+- ✅ **HCS Spending & Booking Audit Log**: Every completed payment submits an immutable record to Hedera Consensus Service Topic `0.0.11339796`. Topic Link: https://hashscan.io/testnet/topic/0.0.11339796
 - ✅ **HTS Token Support**: Supports native HBAR transfers as well as HTS token settlements (USDC token ID `0.0.429274`).
 - ✅ **Mirror Node Balance Tracking**: Live account balances query `https://testnet.mirrornode.hedera.com/api/v1/accounts/{wallet}`.
 
@@ -130,33 +129,35 @@ OASIS proves what developers can build when the Hedera network does the heavy li
 ### Two Native Hedera Services Implemented
 
 #### Service 1: Hedera Token Service (HTS) & Native Accounts
-- **Implementation**: [`backend/agent/x402_hedera.py`](file:///home/pranay/Projects/ethglobal-mumbai/backend/agent/x402_hedera.py) and [`frontend/src/lib/x402-hedera.ts`](file:///home/pranay/Projects/ethglobal-mumbai/frontend/src/lib/x402-hedera.ts).
+- **Implementation**: [`backend/agent/x402_hedera.py`](https://github.com/pranayjalan254/ethglobal-mumbai/blob/main/backend/agent/x402_hedera.py) and [`frontend/src/lib/x402-hedera.ts`](https://github.com/pranayjalan254/ethglobal-mumbai/blob/main/frontend/src/lib/x402-hedera.ts).
 - **Functionality**: Constructs atomic `TransferTransaction` payloads transferring HBAR or HTS USDC from buyer to provider account, leveraging the native Hedera fee-payer model.
 
 #### Service 2: Hedera Consensus Service (HCS)
-- **Implementation**: [`backend/services/hcs_service.py`](file:///home/pranay/Projects/ethglobal-mumbai/backend/services/hcs_service.py) and [`backend/scripts/create_hcs_topic.py`](file:///home/pranay/Projects/ethglobal-mumbai/backend/scripts/create_hcs_topic.py).
+- **Implementation**: [`backend/services/hcs_service.py`](https://github.com/pranayjalan254/ethglobal-mumbai/blob/main/backend/services/hcs_service.py) and [`backend/scripts/create_hcs_topic.py`](https://github.com/pranayjalan254/ethglobal-mumbai/blob/main/backend/scripts/create_hcs_topic.py).
 - **Functionality**:
   1. Creates an immutable audit channel on Hedera Testnet with `TopicCreateTransaction`.
   2. For every completed booking, submits a verifiable JSON audit message using `TopicMessageSubmitTransaction`:
      ```json
      {
-       "app": "OASIS Protocol",
+       "app": "OASIS",
        "event": "booking_confirmed",
        "bookingRef": "SP-767972",
-       "serviceId": "s1",
-       "service": "UI Designer Consultation",
-       "buyer": "0x5d8d26cbea05632abf3a3cf87e1f3806ad34de77",
-       "amount": 0.05,
-       "currency": "USDC",
-       "txId": "0.0.9185802@1793972178.825285911",
-       "timestamp": "2026-11-06T13:35:00Z"
+       "serviceId": "0x120a9f0b4603e4bfc795f84bfdc0f0e2ac80c9ce6d0b93ac9bf373c540d77133",
+       "service": "1-on-1 Consultation with Pranay",
+       "provider": "Pranay",
+       "buyer": "You",
+       "amount": 0.5,
+       "currency": "HBAR",
+       "txId": "0.0.9185802@1794019791.583968162",
+       "slotStart": "2026-11-06T20:39:45.204Z",
+       "timestamp": "2026-11-07T02:49:55.296490Z"
      }
      ```
 - **Live HCS Topic ID**: [`0.0.11339796`](https://hashscan.io/testnet/topic/0.0.11339796)
 - **HashScan Topic URL**: [https://hashscan.io/testnet/topic/0.0.11339796](https://hashscan.io/testnet/topic/0.0.11339796)
 
 ### Extra Points Checklist
-- ✅ **Hedera Mirror Node Integration**: [`backend/services/stats_service.py`](file:///home/pranay/Projects/ethglobal-mumbai/backend/services/stats_service.py) polls `testnet.mirrornode.hedera.com` to resolve real-time account balances and receipts.
+- ✅ **Hedera Mirror Node Integration**: [`backend/services/stats_service.py`](https://github.com/pranayjalan254/ethglobal-mumbai/blob/main/backend/services/stats_service.py) polls `testnet.mirrornode.hedera.com` to resolve real-time account balances and receipts.
 - ✅ **Creative Use of HCS**: Tamper-evident booking receipts published to HCS give buyers and providers an unforgeable dispute-resolution record without any EVM state storage.
 - ✅ **Thoughtful Security & Key Management**: Isolated per-client ECDSA key pairs (`PrivateKey.from_string_ecdsa`) prevent cross-tenant key leakage.
 
@@ -178,9 +179,9 @@ A key architectural principle of OASIS is that **providers retain ownership of t
 ### 2. Entities & Schemas
 | Schema Name | Owner Wallet | Purpose & Indexed Attributes | Expiration (TTL) |
 | :--- | :--- | :--- | :--- |
-| `slotpay.services.v1` (`oasis.services.v1`) | Provider Wallet | Service title, category, skills, hourly rate (`price`), duration, provider wallet, `swarmRef` | 30 days (auto-renewed by active provider) |
-| `slotpay.availability.v1` (`oasis.availability.v1`) | Provider Wallet | Weekly availability bitmasks, recurring booking intervals | 7 days (rolling weekly schedule) |
-| `slotpay.reservation.v1` (`oasis.reservation.v1`) | OASIS Platform | Slot reservation claims, payment transaction IDs, slot burn state | 14 days (retains proof through consultation delivery) |
+| `slotpay.services.v1` | Provider Wallet | Service title, category, skills, hourly rate (`price`), duration, provider wallet, `swarmRef` | 30 days (auto-renewed by active provider) |
+| `slotpay.availability.v1` | Provider Wallet | Weekly availability bitmasks, recurring booking intervals | 7 days (rolling weekly schedule) |
+| `slotpay.reservation.v1` | OASIS Platform | Slot reservation claims, payment transaction IDs, slot burn state | 14 days (retains proof through consultation delivery) |
 
 ### 3. Wallet Addresses That Wrote Entities
 - **Platform Signer Wallet**: `0xc819c505B7Bb52ef8a77311d09526E46F8403C09`
@@ -204,11 +205,11 @@ curl -X POST "https://rpc.rabdi.db-chain.testnet.arkiv.network" \
 
 ### 5. Detailed Arkiv Documentation Files
 Per the track judging criteria, all required in-depth evaluation documents are located in `/arkiv/`:
-- [`/arkiv/schema.md`](file:///home/pranay/Projects/ethglobal-mumbai/arkiv/schema.md) — Comprehensive schema definitions, indexed fields, entity ownership rules, and TTL policies.
-- [`/arkiv/friction.md`](file:///home/pranay/Projects/ethglobal-mumbai/arkiv/friction.md) — Developer friction points encountered and concrete improvements for the Arkiv protocol.
-- [`/arkiv/reach.md`](file:///home/pranay/Projects/ethglobal-mumbai/arkiv/reach.md) — Target market, user personas, live usability, and post-hackathon roadmap.
-- [`/arkiv/why-arkiv.md`](file:///home/pranay/Projects/ethglobal-mumbai/arkiv/why-arkiv.md) — Comparative analysis vs. Postgres and what data was intentionally kept off Arkiv.
-- [`/arkiv/how-you-use-arkiv.md`](file:///home/pranay/Projects/ethglobal-mumbai/arkiv/how-you-use-arkiv.md) — Query filters, entity edit rights, and direct UI manifestations.
+- [`/arkiv/schema.md`](https://github.com/pranayjalan254/ethglobal-mumbai/blob/main/arkiv/schema.md) — Comprehensive schema definitions, indexed fields, entity ownership rules, and TTL policies.
+- [`/arkiv/friction.md`](https://github.com/pranayjalan254/ethglobal-mumbai/blob/main/arkiv/friction.md) — Developer friction points encountered and concrete improvements for the Arkiv protocol.
+- [`/arkiv/reach.md`](https://github.com/pranayjalan254/ethglobal-mumbai/blob/main/arkiv/reach.md) — Target market, user personas, live usability, and post-hackathon roadmap.
+- [`/arkiv/why-arkiv.md`](https://github.com/pranayjalan254/ethglobal-mumbai/blob/main/arkiv/why-arkiv.md) — Comparative analysis vs. Postgres and what data was intentionally kept off Arkiv.
+- [`/arkiv/how-you-use-arkiv.md`](https://github.com/pranayjalan254/ethglobal-mumbai/blob/main/arkiv/how-you-use-arkiv.md) — Query filters, entity edit rights, and direct UI manifestations.
 
 ---
 
@@ -226,16 +227,17 @@ AI agents retrieve and evaluate these documents when assessing provider qualific
 
 ### Live Proofs & Links
 - **Arkiv Entity Key on Rabdi Testnet**:  
-  `0xcf693ae19d3fa3bbb43956a5ef7e6fe0f66c878b02a1d1347b1badf0294fb9a6`
+  `0xce0939eb89cb38ac6d5f1761c1e93d23005f3428375be6147be49339949fe3a0`
+- **Arkiv Entity Key Query URL on Rabdi Testnet**: 
+  `https://rabdi.explorer.arkiv.network/tx/0xc9432550bf6384de2271d32327d83e954fd31b37996d2f22389e2b6a94f7a731`
 - **Linked Swarm Reference**:  
   `96bfa8a3683f12445e999c104cf2ec700ab2f22b7a957d90d7003ffea3dc10b6`
 - **Live Swarm Gateway Link**:  
-  [https://api.gateway.ethswarm.org/bzz/96bfa8a3683f12445e999c104cf2ec700ab2f22b7a957d90d7003ffea3dc10b6](https://api.gateway.ethswarm.org/bzz/96bfa8a3683f12445e999c104cf2ec700ab2f22b7a957d90d7003ffea3dc10b6)
+  [https://bzz.link/forbidden?hash=69505afea8f1f85285923de9a130f09c00be50a14466f3913cd2ab063b225af2](https://bzz.link/forbidden?hash=69505afea8f1f85285923de9a130f09c00be50a14466f3913cd2ab063b225af2)
 - **Postage Stamp Batch ID**:  
-  `7f8a3c9b1e2d4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a` (Purchased by: `0x5d8d26cbea05632abf3a3cf87e1f3806ad34de77`)
-- **Bee Node Gateway**: `https://api.gateway.ethswarm.org`
+  `69505afea8f1f85285923de9a130f09c00be50a14466f3913cd2ab063b225af2` (Purchased by: `0x5d8d26cbea05632abf3a3cf87e1f3806ad34de77`)
 
-Full Swarm documentation, video timestamps, and reproduction steps: [`/arkiv/swarm.md`](file:///home/pranay/Projects/ethglobal-mumbai/arkiv/swarm.md).
+Full Swarm documentation, video timestamps, and reproduction steps: [`/arkiv/swarm.md`](https://github.com/pranayjalan254/ethglobal-mumbai/blob/main/arkiv/swarm.md).
 
 ---
 
